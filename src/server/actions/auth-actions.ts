@@ -45,9 +45,8 @@ export async function loginAction(formData: {
   let response: LoginResponse;
   try {
     response = await api.post<LoginResponse>(
-      '/auth/login',
+      '/auth/admin/login',
       {
-        // ⚠️ Adapter ces noms de champs selon ce que ton backend attend
         identifier: parsed.data.email,
         password: parsed.data.password,
       },
@@ -70,14 +69,30 @@ export async function loginAction(formData: {
           error: 'Le serveur ne répond pas. Vérifie ta connexion ou réessaie.',
         };
       }
+      // Cas spécifique : compte invité qui n'a pas encore défini son mot de passe
+      if (
+        error.status === 403 &&
+        typeof error.body === 'object' &&
+        error.body !== null &&
+        'message' in error.body &&
+        typeof (error.body as { message: unknown }).message === 'string' &&
+        (error.body as { message: string }).message.includes('invitation')
+      ) {
+        return {
+          success: false,
+          error:
+            "Vous devez d'abord définir votre mot de passe via le lien d'invitation reçu par email.",
+        };
+      }
       return { success: false, error: GENERIC_AUTH_ERROR };
     }
     return { success: false, error: GENERIC_AUTH_ERROR };
   }
 
   // 3. Vérification du rôle — un client/vendor/livreur ne doit PAS pouvoir se connecter au dashboard
-  const userRole = response.user?.role;
-  if (!userRole || !DASHBOARD_ROLES.includes(userRole as (typeof DASHBOARD_ROLES)[number])) {
+  // (sécurité défensive — le backend filtre déjà via /auth/admin/login)
+  const adminRole = response.admin?.role;
+  if (!adminRole || !DASHBOARD_ROLES.includes(adminRole as (typeof DASHBOARD_ROLES)[number])) {
     return {
       success: false,
       error: "Votre compte n'est pas autorisé sur ce dashboard.",
@@ -85,7 +100,7 @@ export async function loginAction(formData: {
   }
 
   // 4. Vérification du compte actif
-  if (!response.user.isActive) {
+  if (!response.admin.isActive) {
     return {
       success: false,
       error: 'Votre compte a été désactivé. Contactez le SuperAdmin.',

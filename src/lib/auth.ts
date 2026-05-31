@@ -37,7 +37,7 @@ export const getCurrentUser = cache(async (): Promise<AdminUser | null> => {
   if (!token) return null;
 
   try {
-    const response = await fetch(`${API_CONFIG.baseUrl}/auth/me`, {
+    const response = await fetch(`${API_CONFIG.baseUrl}/auth/admin/me`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -46,7 +46,7 @@ export const getCurrentUser = cache(async (): Promise<AdminUser | null> => {
     });
 
     if (!response.ok) {
-      // Token invalide / expiré / utilisateur supprimé
+      // Token invalide / expiré / admin supprimé ou désactivé
       return null;
     }
 

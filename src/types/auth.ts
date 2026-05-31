@@ -15,20 +15,22 @@ export interface AdminUser {
   name: string;
   role: AdminRole;
   isActive: boolean;
+  isPasswordSet: boolean;
   lastLoginAt?: string | null;
   createdAt: string;
+  updatedAt: string;
+  createdById?: string | null;
 }
 
 /**
- * Réponse attendue de POST /auth/login (backend NestJS).
+ * Réponse de POST /auth/admin/login (backend NestJS).
  *
- * ⚠️ Adapter selon ce que ton backend renvoie réellement.
- * Si la forme est différente, modifier `loginAction` dans server/actions/auth-actions.ts.
+ * ⚠️ Le backend renvoie la clé `admin` (et non `user`) car le flux admin
+ * est séparé du flux client. Conserver cette convention dans tout le dashboard.
  */
 export interface LoginResponse {
   accessToken: string;
-  refreshToken?: string;
-  user: AdminUser;
+  admin: AdminUser;
 }
 
 export interface LoginCredentials {

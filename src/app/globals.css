@@ -4,9 +4,9 @@
 /**
  * Design tokens Asoukaa.
  *
- * Tailwind v4 : @theme inline mappe les CSS vars → utilitaires Tailwind.
- * Les vars stockent des valeurs hsl() complètes (plus les composantes seules).
- * Couleur de marque : orange #FF6B00 ≈ hsl(25 100% 50%)
+ * Tailwind v4 : @theme inline mappe les CSS vars -> utilitaires Tailwind.
+ * Les vars stockent des valeurs hsl() complètes.
+ * Couleur de marque : orange #FF6B00 = hsl(25 100% 50%)
  */
 
 @theme inline {
@@ -42,47 +42,31 @@
 }
 
 :root {
-  /* Surfaces */
   --background: hsl(0 0% 100%);
   --foreground: hsl(240 10% 3.9%);
   --card: hsl(0 0% 100%);
   --card-foreground: hsl(240 10% 3.9%);
   --popover: hsl(0 0% 100%);
   --popover-foreground: hsl(240 10% 3.9%);
-
-  /* Marque Asoukaa (orange) */
   --primary: hsl(25 100% 50%);
   --primary-foreground: hsl(0 0% 100%);
-
-  /* Secondaire */
   --secondary: hsl(240 4.8% 95.9%);
   --secondary-foreground: hsl(240 5.9% 10%);
-
-  /* Erreur */
   --destructive: hsl(0 84.2% 60.2%);
   --destructive-foreground: hsl(0 0% 98%);
-
-  /* Atténué */
   --muted: hsl(240 4.8% 95.9%);
   --muted-foreground: hsl(240 3.8% 46.1%);
-
-  /* Accent */
   --accent: hsl(240 4.8% 95.9%);
   --accent-foreground: hsl(240 5.9% 10%);
-
-  /* Sémantique */
   --success: hsl(142 71% 45%);
   --success-foreground: hsl(0 0% 100%);
   --warning: hsl(38 92% 50%);
   --warning-foreground: hsl(0 0% 100%);
   --info: hsl(217 91% 60%);
   --info-foreground: hsl(0 0% 100%);
-
-  /* Inputs / borders */
   --border: hsl(240 5.9% 90%);
   --input: hsl(240 5.9% 90%);
   --ring: hsl(25 100% 50%);
-
   --radius: 0.625rem;
 }
 
@@ -93,29 +77,22 @@
   --card-foreground: hsl(0 0% 98%);
   --popover: hsl(240 10% 3.9%);
   --popover-foreground: hsl(0 0% 98%);
-
   --primary: hsl(25 100% 55%);
   --primary-foreground: hsl(0 0% 100%);
-
   --secondary: hsl(240 3.7% 15.9%);
   --secondary-foreground: hsl(0 0% 98%);
-
   --destructive: hsl(0 62.8% 50%);
   --destructive-foreground: hsl(0 0% 98%);
-
   --muted: hsl(240 3.7% 15.9%);
   --muted-foreground: hsl(240 5% 64.9%);
-
   --accent: hsl(240 3.7% 15.9%);
   --accent-foreground: hsl(0 0% 98%);
-
   --success: hsl(142 71% 45%);
   --success-foreground: hsl(0 0% 100%);
   --warning: hsl(38 92% 50%);
   --warning-foreground: hsl(0 0% 100%);
   --info: hsl(217 91% 60%);
   --info-foreground: hsl(0 0% 100%);
-
   --border: hsl(240 3.7% 15.9%);
   --input: hsl(240 3.7% 15.9%);
   --ring: hsl(25 100% 55%);
@@ -123,14 +100,16 @@
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: var(--color-border);
   }
   body {
-    @apply bg-background text-foreground antialiased;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
-/* Scrollbar discrète (Webkit) */
 @layer utilities {
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;

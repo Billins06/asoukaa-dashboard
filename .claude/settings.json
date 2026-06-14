@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"c:\\\\PROJET\\\\asoukaa-dashboard\\\\src\" -Recurse -Directory)",
+      "Bash(Select-Object FullName)",
+      "Bash(Sort-Object FullName)",
+      "Bash(mkdir -p \"c:/PROJET/asoukaa-dashboard/src/app/dashboard/orders/_components\" 2>&1; echo \"done\")",
+      "Bash(npx tsc *)"
+    ],
+    "additionalDirectories": [
+      "c:\\PROJET\\asoukaa-dashboard\\src\\app\\dashboard\\orders"
+    ]
+  }
+}

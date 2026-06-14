@@ -30,7 +30,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   }
 
   return (
-    <div className="min-h-screen flex bg-muted/30">
+    <div className="min-h-screen flex bg-background">
       <Sidebar userRole={user.role} />
       <div className="flex-1 flex flex-col min-w-0">
         <Header user={user} />

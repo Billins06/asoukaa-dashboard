@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { api, ApiError } from '@/lib/api';
 import { AUTH_COOKIE, DASHBOARD_ROLES } from '@/lib/constants';
-import type { LoginResponse, ActionResult } from '@/types/auth';
+import type { LoginResponse } from '@/types/auth';
 import type { ActionResult as GenericActionResult } from '@/types/api';
 
 /**

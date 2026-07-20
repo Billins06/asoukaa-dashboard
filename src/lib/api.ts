@@ -38,8 +38,9 @@ async function request<T>(path: string, options: FetchOptions = {}): Promise<T> 
   const url = path.startsWith('http') ? path : `${API_CONFIG.baseUrl}${path}`;
 
   // 2. Construire les headers
+  // Content-Type uniquement si la requête a un body (GET/DELETE n'en ont pas)
   const finalHeaders: HeadersInit = {
-    'Content-Type': 'application/json',
+    ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
     Accept: 'application/json',
     ...headers,
   };
@@ -72,12 +73,17 @@ async function request<T>(path: string, options: FetchOptions = {}): Promise<T> 
     const data = isJson ? await response.json().catch(() => null) : await response.text();
 
     if (!response.ok) {
-      const message =
-        (isJson && data && typeof data === 'object' && 'message' in data
-          ? Array.isArray((data as { message: unknown }).message)
-            ? ((data as { message: string[] }).message).join(', ')
-            : String((data as { message: unknown }).message)
-          : null) || `Erreur HTTP ${response.status}`;
+      const rawMsg =
+        isJson && data && typeof data === 'object' && 'message' in data
+          ? (data as { message: unknown }).message
+          : null;
+      const message = rawMsg === null || rawMsg === undefined
+        ? `Erreur HTTP ${response.status}`
+        : Array.isArray(rawMsg)
+        ? (rawMsg as unknown[]).map((m) => (typeof m === 'string' ? m : JSON.stringify(m))).join(', ')
+        : typeof rawMsg === 'string'
+        ? rawMsg || `Erreur HTTP ${response.status}`
+        : JSON.stringify(rawMsg);
       throw new ApiError(response.status, data, message);
     }
 

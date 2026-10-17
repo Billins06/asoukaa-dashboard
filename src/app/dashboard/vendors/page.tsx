@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { unstable_rethrow } from 'next/navigation';
+import { InlineError, errorMessage } from '@/components/inline-error';
 import { getVendors, getPendingVendors } from '@/lib/vendors/api';
 import { VendorsClient } from './_components/vendors-client';
 import { VendorsTableSkeleton } from './_components/vendors-skeleton';
@@ -13,7 +15,7 @@ interface PageProps {
 export default async function VendorsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const tab = params.tab === 'pending' ? 'pending' : 'all';
-  const page = Math.max(1, Number(params.page) || 1);
+  const page = Math.max(1, parseInt(params.page ?? '', 10) || 1);
 
   return (
     <div className="space-y-6">
@@ -32,14 +34,20 @@ export default async function VendorsPage({ searchParams }: PageProps) {
 }
 
 async function VendorsDataServer({ tab, page }: { tab: string; page: number }) {
-  const [allData, pendingData] = await Promise.all([
-    getVendors(undefined, page, 20),
-    getPendingVendors(),
-  ]);
+  let allData, pendingData;
+  try {
+    [allData, pendingData] = await Promise.all([
+      getVendors(undefined, page, 20),
+      getPendingVendors(),
+    ]);
+  } catch (error) {
+    unstable_rethrow(error);
+    return <InlineError title="Impossible de charger les vendeurs." message={errorMessage(error)} />;
+  }
   return (
     <VendorsClient
       allData={allData}
-      pendingData={pendingData}
+      pendingData={Array.isArray(pendingData) ? pendingData : []}
       activeTab={tab}
       currentPage={page}
     />

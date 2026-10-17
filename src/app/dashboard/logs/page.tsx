@@ -1,16 +1,15 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
+import { unstable_rethrow } from 'next/navigation';
 import { AlertCircle, ScrollText } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { getLogs, getLoginFailures } from '@/lib/logs/api';
+import { parsePageParam } from '@/lib/format';
+import { isLogActorType, isLogResult, isLogAction } from '@/lib/status-meta';
 import { LogsClient } from './_components/logs-client';
-import type { LogActorType, LogResult } from '@/lib/logs/types';
 
 export const metadata: Metadata = { title: "Journal d'activité" };
-
-const VALID_ACTOR_TYPES: LogActorType[] = ['ADMIN', 'USER', 'SYSTEM'];
-const VALID_RESULTS: LogResult[] = ['SUCCESS', 'FAILURE', 'ERROR'];
 
 interface PageProps {
   searchParams: Promise<{
@@ -26,40 +25,42 @@ async function LogsContent({ searchParams }: PageProps) {
   const params = await searchParams;
 
   const view = params.view === 'failures' ? 'failures' : 'all';
-  const page = Math.max(1, Number(params.page ?? '1'));
+  const page = parsePageParam(params.page);
 
-  const actorType = VALID_ACTOR_TYPES.includes(params.actorType as LogActorType)
-    ? (params.actorType as LogActorType)
-    : undefined;
-  const result = VALID_RESULTS.includes(params.result as LogResult)
-    ? (params.result as LogResult)
-    : undefined;
-  const action = params.action?.trim() || undefined;
+  // Le serveur refuse (erreur 400) toute valeur hors liste : on ne transmet
+  // que des valeurs connues, le reste est ignoré.
+  const actorType = isLogActorType(params.actorType) ? params.actorType : undefined;
+  const result = isLogResult(params.result) ? params.result : undefined;
+  const action = isLogAction(params.action) ? params.action : undefined;
 
+  let data: Awaited<ReturnType<typeof getLogs>>;
   try {
-    const data = view === 'failures'
+    data = view === 'failures'
       ? await getLoginFailures(page)
       : await getLogs({ actorType, result, action, page, limit: 20 });
-
-    return (
-      <LogsClient
-        data={data}
-        currentPage={page}
-        view={view}
-        activeActorType={actorType}
-        activeResult={result}
-        activeAction={action}
-      />
-    );
   } catch (error) {
+    // Une session expirée déclenche une redirection (exception spéciale de Next) :
+    // on la laisse passer au lieu de l'afficher comme une erreur.
+    unstable_rethrow(error);
     const msg = error instanceof Error ? error.message : 'Erreur inconnue';
     return (
       <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-[13px] text-destructive">
         <AlertCircle className="h-4 w-4 shrink-0" />
-        <span>Impossible de charger les logs : {msg}</span>
+        <span>Impossible de charger le journal d&apos;activité : {msg}</span>
       </div>
     );
   }
+
+  return (
+    <LogsClient
+      data={data}
+      currentPage={page}
+      view={view}
+      activeActorType={actorType}
+      activeResult={result}
+      activeAction={action}
+    />
+  );
 }
 
 function LogsSkeleton() {
@@ -90,7 +91,7 @@ export default function LogsPage(props: PageProps) {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Journal d&apos;activité</h1>
           <p className="text-[13px] text-muted-foreground mt-0.5">
-            Toutes les actions effectuées sur la plateforme
+            Historique des actions effectuées sur la plateforme (conservé 1 an)
           </p>
         </div>
       </div>

@@ -1,6 +1,13 @@
-export type AgentStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'BLOCKED';
-export type VehicleType = 'MOTO' | 'VOITURE' | 'TRICYCLE' | 'VELO';
-export type Availability = 'FULL_TIME' | 'PART_TIME';
+import type { AgentStatus, Availability, VehicleType } from '@/lib/status-meta';
+import type { Paginated } from '@/lib/pagination';
+
+/**
+ * Valeurs EXACTES du serveur (voir lib/status-meta.ts) :
+ *  - statut : « en attente » · « approuvé » · « rejeté » · « bloqué »
+ *  - véhicule : « moto » · « voiture » · « tricycle » · « velo » (minuscules)
+ *  - disponibilité : « Temps_plein » · « Temps_partiel »
+ */
+export type { AgentStatus, VehicleType, Availability };
 
 export interface AgentUser {
   id: string;
@@ -16,10 +23,16 @@ export interface AgentListItem {
   availability: Availability;
   ville: string;
   status: AgentStatus;
-  noteMoyenne: number;
-  tauxDeReussite: number;
+  /** Décimaux Postgres : arrivent en TEXTE ("4.50") → toujours passer par Number()/toNumber(). */
+  noteMoyenne: string | number;
+  tauxDeReussite: string | number;
   totalLivraisons: number;
+  createdAt?: string;
   user: AgentUser;
+  // Pièces du dossier (fiche /delivery-agents/:id ; contrôlées avant affichage)
+  idDocumentUrl?: string | null;
+  selfieUrl?: string | null;
+  vehiclePhotoUrl?: string | null;
 }
 
 export interface AgentPendingItem {
@@ -29,14 +42,11 @@ export interface AgentPendingItem {
   quartier: string;
   createdAt: string;
   user: Pick<AgentUser, 'id' | 'prenom' | 'name' | 'email' | 'phone'>;
+  idDocumentUrl?: string | null;
+  selfieUrl?: string | null;
+  vehiclePhotoUrl?: string | null;
 }
 
 export type AgentReviewAction = 'approve' | 'reject';
 
-export interface BackendPaginated<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  pages: number;
-}
+export type BackendPaginated<T> = Paginated<T>;

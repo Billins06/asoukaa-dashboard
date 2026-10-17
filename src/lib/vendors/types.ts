@@ -1,4 +1,4 @@
-export type VendorStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'BLOCKED';
+export type VendorStatus = 'en attente' | 'approuvé' | 'rejeté' | 'bloqué';
 
 export interface VendorUser {
   id: string;
@@ -8,23 +8,40 @@ export interface VendorUser {
   phone: string;
 }
 
+export interface VendorCategory {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+}
+
 export interface VendorListItem {
   id: string;
   shopName: string;
   activityType: string;
+  categoryIds?: string[];
+  categories?: VendorCategory[];
   status: VendorStatus;
   submittedAt: string | null;
   submissionCount: number;
   user: VendorUser;
+  // Pièces du dossier (renvoyées par la fiche /vendors/:id ; contrôlées avant affichage)
+  idDocumentUrl?: string | null;
+  selfieUrl?: string | null;
+  sampleProductUrls?: string[] | null;
 }
 
 export interface VendorPendingItem {
   id: string;
   shopName: string;
   activityType: string;
+  categoryIds?: string[];
+  categories?: VendorCategory[];
   submittedAt: string | null;
   submissionCount: number;
   user: Pick<VendorUser, 'id' | 'prenom' | 'name' | 'email'>;
+  idDocumentUrl?: string | null;
+  selfieUrl?: string | null;
+  sampleProductUrls?: string[] | null;
 }
 
 export type VendorReviewAction = 'approve' | 'reject';

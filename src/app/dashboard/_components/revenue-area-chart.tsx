@@ -19,8 +19,8 @@ export function RevenueAreaChart({ data }: { data: RevenuePoint[] }) {
       <AreaChart data={data} margin={{ top: 10, right: 4, bottom: 0, left: 4 }}>
         <defs>
           <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="hsl(25 100% 50%)" stopOpacity={0.2} />
-            <stop offset="85%" stopColor="hsl(25 100% 50%)" stopOpacity={0} />
+            <stop offset="0%" stopColor="hsl(21 100% 53%)" stopOpacity={0.2} />
+            <stop offset="85%" stopColor="hsl(21 100% 53%)" stopOpacity={0} />
           </linearGradient>
         </defs>
 
@@ -66,11 +66,11 @@ export function RevenueAreaChart({ data }: { data: RevenuePoint[] }) {
         <Area
           type="monotone"
           dataKey="revenue"
-          stroke="hsl(25 100% 50%)"
+          stroke="hsl(21 100% 53%)"
           strokeWidth={2}
           fill="url(#revenueGrad)"
           dot={false}
-          activeDot={{ r: 4, fill: 'hsl(25 100% 50%)', strokeWidth: 0 }}
+          activeDot={{ r: 4, fill: 'hsl(21 100% 53%)', strokeWidth: 0 }}
           animationDuration={500}
         />
       </AreaChart>

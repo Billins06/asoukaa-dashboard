@@ -13,9 +13,14 @@ import {
   MessageSquareWarning,
   Star,
   RotateCcw,
+  CircleAlert,
+  MapPin,
   ScrollText,
   ShieldCheck,
+  GalleryHorizontalEnd,
+  LifeBuoy,
 } from 'lucide-react';
+import type { SidebarCountKey } from '@/lib/sidebar/types';
 
 /**
  * Configuration de la navigation principale.
@@ -29,8 +34,15 @@ export type NavItem = {
   href: string;
   icon: LucideIcon;
   requiredRole?: 'admin' | 'superadmin';
-  /** Pastille de notification (à brancher sur l'API plus tard) */
+  /** Pastille fixe (rarement utile : préférer `countKey`, alimenté par l'API) */
   badge?: number;
+  /** Compteur de /admin/sidebar-counts affiché en pastille (0 ou erreur = aucune pastille) */
+  countKey?: SidebarCountKey;
+  /**
+   * Couleur de la pastille : 'queue' = file d'attente à traiter (couleur primaire,
+   * orange) ; 'alert' = alerte de sécurité (rouge).
+   */
+  badgeTone?: 'queue' | 'alert';
 };
 
 export type NavSection = {
@@ -43,23 +55,31 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'Général',
     items: [
       { label: 'Vue globale', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'Utilisateurs', href: '/dashboard/users', icon: Users },
+      { label: 'Utilisateurs', href: '/dashboard/users', icon: Users, countKey: 'securityAlerts', badgeTone: 'alert' },
     ],
   },
   {
     title: 'Validations',
     items: [
-      { label: 'Vendeurs', href: '/dashboard/vendors', icon: Store },
-      { label: 'Livreurs', href: '/dashboard/agents', icon: Truck },
+      { label: 'Vendeurs', href: '/dashboard/vendors', icon: Store, countKey: 'vendors' },
+      { label: 'Livreurs', href: '/dashboard/agents', icon: Truck, countKey: 'agents' },
     ],
   },
   {
     title: 'Opérations',
     items: [
-      { label: 'Commandes', href: '/dashboard/orders', icon: ShoppingCart },
+      { label: 'Commandes', href: '/dashboard/orders', icon: ShoppingCart, countKey: 'ordersToConfirm' },
       { label: 'Catégories', href: '/dashboard/categories', icon: FolderTree },
       { label: 'Commissions', href: '/dashboard/commissions', icon: Wallet },
-      { label: 'Remboursements', href: '/dashboard/refunds', icon: RotateCcw },
+      { label: 'Remboursements', href: '/dashboard/refunds', icon: RotateCcw, countKey: 'refunds' },
+      {
+        label: 'Paiements à examiner',
+        href: '/dashboard/payments-to-review',
+        icon: CircleAlert,
+        countKey: 'paymentsToReview',
+        badgeTone: 'alert',
+      },
+      { label: 'Livraison', href: '/dashboard/delivery-zones', icon: MapPin },
     ],
   },
   {
@@ -68,6 +88,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Partenaires', href: '/dashboard/partners', icon: Handshake },
       { label: 'Fournisseurs', href: '/dashboard/suppliers', icon: Building2 },
       { label: 'Coupons', href: '/dashboard/coupons', icon: TicketPercent },
+      { label: 'Vitrine', href: '/dashboard/vitrine', icon: GalleryHorizontalEnd },
     ],
   },
   {
@@ -75,6 +96,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'Avis', href: '/dashboard/reviews', icon: Star },
       { label: 'Messages signalés', href: '/dashboard/messages', icon: MessageSquareWarning },
+      { label: 'Support', href: '/dashboard/support', icon: LifeBuoy, countKey: 'supportTickets' },
     ],
   },
   {

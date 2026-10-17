@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { unstable_rethrow } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import type { CreateCouponPayload } from '@/lib/coupons/types';
 import type { ActionResult } from '@/types/api';
@@ -13,6 +14,7 @@ export async function createCouponAction(
     revalidatePath('/dashboard/coupons');
     return { success: true, data: undefined };
   } catch (error) {
+    unstable_rethrow(error);
     return { success: false, error: extractMsg(error) };
   }
 }
@@ -23,6 +25,7 @@ export async function deactivateCouponAction(id: string): Promise<ActionResult> 
     revalidatePath('/dashboard/coupons');
     return { success: true, data: undefined };
   } catch (error) {
+    unstable_rethrow(error);
     return { success: false, error: extractMsg(error) };
   }
 }

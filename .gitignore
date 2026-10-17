@@ -41,3 +41,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Sauvegardes de travail, fichiers de test
+_sauvegardes*/
+*.bak
+*.bak_*
+prompt-test-client.txt

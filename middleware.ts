@@ -23,15 +23,25 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get(COOKIE_NAME)?.value;
   const { pathname } = request.nextUrl;
 
-  // Routes 100% publiques : /login, /api, assets statiques
+  // Routes 100% publiques : /login, /set-password, /api, assets statiques
+  // /set-password : page d'invitation (un admin invité n'a pas encore de session).
+  // Comparaison EXACTE (et non startsWith) pour ne rien ouvrir d'autre par accident.
   const isPublicRoute =
     pathname.startsWith('/login') ||
+    pathname === '/set-password' ||
+    pathname === '/set-password/' ||
     pathname.startsWith('/api') ||
     pathname.startsWith('/_next') ||
     pathname.includes('.'); // fichiers statiques (favicon, etc.)
 
+  // Session expirée : /api/session/expired renvoie vers /login?expired=1. On laisse
+  // alors afficher /login même si un cookie est encore là (sinon : boucle
+  // /login -> /dashboard -> /login quand le JWT est mort mais le cookie présent).
+  const isExpiredLogin =
+    pathname.startsWith('/login') && request.nextUrl.searchParams.get('expired') === '1';
+
   // Si connecté et essaie d'aller sur /login → renvoyer vers /dashboard
-  if (token && pathname.startsWith('/login')) {
+  if (token && pathname.startsWith('/login') && !isExpiredLogin) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 

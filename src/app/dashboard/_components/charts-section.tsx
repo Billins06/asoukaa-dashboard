@@ -22,7 +22,7 @@ export async function ChartsSection({ period }: { period: DashboardPeriod }) {
             <div>
               <CardTitle className="text-[14px] font-semibold flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-primary" />
-                Chiffre d'affaires
+                Chiffre d&apos;affaires
               </CardTitle>
               <CardDescription className="text-xs mt-0.5">{PERIOD_LABELS[period]}</CardDescription>
             </div>

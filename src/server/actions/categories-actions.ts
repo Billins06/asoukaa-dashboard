@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { unstable_rethrow } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import type { CreateCategoryPayload, UpdateCategoryPayload } from '@/lib/categories/types';
 import type { ActionResult } from '@/types/api';
@@ -23,6 +24,7 @@ export async function createCategoryAction(
     revalidatePath('/dashboard/categories');
     return { success: true, data: undefined };
   } catch (error) {
+    unstable_rethrow(error);
     return { success: false, error: extractMsg(error) };
   }
 }
@@ -36,6 +38,7 @@ export async function updateCategoryAction(
     revalidatePath('/dashboard/categories');
     return { success: true, data: undefined };
   } catch (error) {
+    unstable_rethrow(error);
     return { success: false, error: extractMsg(error) };
   }
 }
@@ -46,6 +49,7 @@ export async function toggleCategoryAction(id: string): Promise<ActionResult> {
     revalidatePath('/dashboard/categories');
     return { success: true, data: undefined };
   } catch (error) {
+    unstable_rethrow(error);
     return { success: false, error: extractMsg(error) };
   }
 }
@@ -56,6 +60,7 @@ export async function deleteCategoryAction(id: string): Promise<ActionResult> {
     revalidatePath('/dashboard/categories');
     return { success: true, data: undefined };
   } catch (error) {
+    unstable_rethrow(error);
     return { success: false, error: extractMsg(error) };
   }
 }

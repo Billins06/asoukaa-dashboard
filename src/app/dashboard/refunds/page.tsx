@@ -1,14 +1,14 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
+import { redirect, unstable_rethrow } from 'next/navigation';
 import { AlertCircle } from 'lucide-react';
 import { getRefunds } from '@/lib/refunds/api';
+import { parsePageParam } from '@/lib/format';
+import { isRefundStatus } from '@/lib/status-meta';
 import { RefundsClient } from './_components/refunds-client';
 import { RefundsSkeleton } from './_components/refunds-skeleton';
-import type { RefundStatus } from '@/lib/refunds/types';
 
 export const metadata: Metadata = { title: 'Remboursements' };
-
-const VALID_STATUSES: RefundStatus[] = ['PENDING', 'APPROVED', 'REJECTED', 'PROCESSED'];
 
 interface PageProps {
   searchParams: Promise<{ status?: string; page?: string }>;
@@ -16,16 +16,15 @@ interface PageProps {
 
 async function RefundsContent({ searchParams }: PageProps) {
   const params = await searchParams;
-  const rawStatus = params.status ?? 'all';
-  const page = Math.max(1, Number(params.page ?? '1'));
-  const status = VALID_STATUSES.includes(rawStatus as RefundStatus)
-    ? (rawStatus as RefundStatus)
-    : undefined;
+  const page = parsePageParam(params.page);
+  // Valeur EXACTE du serveur (« en attente », « rejetté »…) ou « all ».
+  const status = isRefundStatus(params.status) ? params.status : undefined;
 
+  let data: Awaited<ReturnType<typeof getRefunds>>;
   try {
-    const data = await getRefunds({ status, page, limit: 20 });
-    return <RefundsClient data={data} currentPage={page} activeStatus={rawStatus} />;
+    data = await getRefunds({ status, page, limit: 20 });
   } catch (error) {
+    unstable_rethrow(error);
     const msg = error instanceof Error ? error.message : 'Erreur inconnue';
     return (
       <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-[13px] text-destructive">
@@ -34,6 +33,17 @@ async function RefundsContent({ searchParams }: PageProps) {
       </div>
     );
   }
+
+  // Page hors limites (ex. ?page=9 alors qu'il n'y en a que 2, ou après un filtre) :
+  // on renvoie vers la dernière page existante au lieu d'une liste vide trompeuse.
+  if (data.pages > 0 && page > data.pages) {
+    const qs = new URLSearchParams();
+    if (status) qs.set('status', status);
+    if (data.pages > 1) qs.set('page', String(data.pages));
+    redirect(`/dashboard/refunds${qs.size ? `?${qs.toString()}` : ''}`);
+  }
+
+  return <RefundsClient data={data} currentPage={page} activeStatus={status ?? 'all'} />;
 }
 
 export default function RefundsPage(props: PageProps) {

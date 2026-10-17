@@ -43,14 +43,24 @@ export function CreateCouponDialog() {
       toast.error('Code et valeur sont obligatoires.');
       return;
     }
+    const value = Number(form.value);
+    if (!Number.isFinite(value) || value <= 0) {
+      toast.error('La valeur doit être supérieure à 0.');
+      return;
+    }
+    if (form.type === 'pourcentage' && value > 100) {
+      toast.error('Un pourcentage ne peut pas dépasser 100.');
+      return;
+    }
     startTransition(async () => {
       const result = await createCouponAction({
         code: form.code.trim().toUpperCase(),
         type: form.type,
-        value: Number(form.value),
+        value,
         ...(form.minOrderAmount ? { minOrderAmount: Number(form.minOrderAmount) } : {}),
         ...(form.maxUses ? { maxUses: Number(form.maxUses) } : {}),
-        ...(form.expiresAt ? { expiresAt: new Date(form.expiresAt).toISOString() } : {}),
+        // Fin de journée (heure locale) : le coupon reste valable TOUT le jour choisi.
+        ...(form.expiresAt ? { expiresAt: new Date(`${form.expiresAt}T23:59:59`).toISOString() } : {}),
       });
       if (result.success) {
         toast.success('Coupon créé');

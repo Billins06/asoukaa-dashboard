@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from 'react';
 import { Plus } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { createAdminAction } from '@/server/actions/admins-actions';
-import type { AdminRole } from '@/lib/admins/types';
+import { ADMIN_ROLE, ADMIN_ROLE_LIST, adminRoleMeta, isAdminRole } from '@/lib/status-meta';
 
 export function CreateAdminDialog() {
   const [open, setOpen] = useState(false);
@@ -19,14 +20,22 @@ export function CreateAdminDialog() {
     setError(null);
     const fd = new FormData(e.currentTarget);
 
+    // Le rôle envoyé doit être « admin » ou « superadmin » (minuscules, enum serveur).
+    const role = fd.get('role');
+    if (!isAdminRole(role)) {
+      setError('Choisissez un rôle.');
+      return;
+    }
+
     startTransition(async () => {
       const result = await createAdminAction({
-        prenom: fd.get('prenom') as string,
-        name: fd.get('name') as string,
-        email: fd.get('email') as string,
-        role: fd.get('role') as AdminRole,
+        prenom: String(fd.get('prenom') ?? ''),
+        name: String(fd.get('name') ?? ''),
+        email: String(fd.get('email') ?? ''),
+        role,
       });
       if (result.success) {
+        toast.success("Invitation envoyée");
         setOpen(false);
       } else {
         setError(result.error);
@@ -41,7 +50,7 @@ export function CreateAdminDialog() {
         Inviter un admin
       </Button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(o) => { if (!isPending) setOpen(o); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Inviter un administrateur</DialogTitle>
@@ -69,28 +78,31 @@ export function CreateAdminDialog() {
 
             <div className="space-y-1.5">
               <Label className="text-[13px]">Rôle</Label>
-              <div className="flex gap-2">
-                {(['ADMIN', 'SUPERADMIN'] as AdminRole[]).map((r) => (
+              <div className="flex gap-4">
+                {ADMIN_ROLE_LIST.map((r) => (
                   <label key={r} className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="role" value={r} defaultChecked={r === 'ADMIN'} className="accent-primary" />
-                    <span className="text-[13px]">{r === 'ADMIN' ? 'Admin' : 'Super Admin'}</span>
+                    <input type="radio" name="role" value={r} defaultChecked={r === ADMIN_ROLE.ADMIN} className="accent-primary" />
+                    <span className="text-[13px]">{adminRoleMeta(r).label}</span>
                   </label>
                 ))}
               </div>
+              <p className="text-[11px] text-muted-foreground">
+                Un Super Admin peut gérer les autres administrateurs et purger le journal d&apos;activité.
+              </p>
             </div>
 
             {error && (
-              <p className="text-[12px] text-destructive bg-destructive/5 border border-destructive/20 rounded px-3 py-2">
+              <p role="alert" className="text-[12px] text-destructive bg-destructive/5 border border-destructive/20 rounded px-3 py-2">
                 {error}
               </p>
             )}
 
             <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" variant="outline" size="sm" className="h-8 text-[13px]" onClick={() => setOpen(false)}>
+              <Button type="button" variant="outline" size="sm" className="h-8 text-[13px]" disabled={isPending} onClick={() => setOpen(false)}>
                 Annuler
               </Button>
               <Button type="submit" size="sm" className="h-8 text-[13px]" disabled={isPending}>
-                {isPending ? 'Envoi...' : 'Envoyer l\'invitation'}
+                {isPending ? 'Envoi...' : "Envoyer l'invitation"}
               </Button>
             </div>
           </form>

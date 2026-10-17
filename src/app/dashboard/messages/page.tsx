@@ -1,36 +1,31 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { AlertCircle, MessageSquareWarning } from 'lucide-react';
+import { unstable_rethrow } from 'next/navigation';
+import { MessageSquareWarning } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
-import { api } from '@/lib/api';
+import { InlineError, errorMessage } from '@/components/inline-error';
+import { getReportedConversations } from '@/lib/chat/api';
+import { getUploadImageHosts } from '@/lib/support/api';
 import { MessagesClient } from './_components/messages-client';
 
 export const metadata: Metadata = { title: 'Messages signalés' };
 
-interface ReportedConversation {
-  id: string;
-  reportedAt?: string;
-  createdAt: string;
-  participants?: { id: string; prenom: string; name: string }[];
-  lastMessage?: { content: string; createdAt: string };
-  reportCount?: number;
+interface PageProps {
+  searchParams: Promise<{ page?: string }>;
 }
 
-async function MessagesContent() {
+async function MessagesContent({ page }: { page: number }) {
+  let data;
   try {
-    const data = await api.get<{ data: ReportedConversation[]; total: number }>('/chat/reported');
-    const conversations = Array.isArray(data) ? data : (data?.data ?? []);
-    return <MessagesClient conversations={conversations} />;
+    data = await getReportedConversations(page, 20);
   } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Erreur inconnue';
+    unstable_rethrow(error);
     return (
-      <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-[13px] text-destructive">
-        <AlertCircle className="h-4 w-4 shrink-0" />
-        <span>Impossible de charger les messages signalés : {msg}</span>
-      </div>
+      <InlineError title="Impossible de charger les messages signalés." message={errorMessage(error)} />
     );
   }
+  return <MessagesClient data={data} currentPage={page} imageHosts={getUploadImageHosts()} />;
 }
 
 function MessagesSkeleton() {
@@ -48,7 +43,10 @@ function MessagesSkeleton() {
   );
 }
 
-export default function MessagesPage() {
+export default async function MessagesPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const page = Math.max(1, parseInt(params.page ?? '', 10) || 1);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
@@ -58,8 +56,8 @@ export default function MessagesPage() {
           <p className="text-[13px] text-muted-foreground mt-0.5">Conversations signalées par les utilisateurs</p>
         </div>
       </div>
-      <Suspense fallback={<MessagesSkeleton />}>
-        <MessagesContent />
+      <Suspense key={`messages-${page}`} fallback={<MessagesSkeleton />}>
+        <MessagesContent page={page} />
       </Suspense>
     </div>
   );

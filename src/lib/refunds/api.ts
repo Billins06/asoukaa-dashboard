@@ -1,5 +1,6 @@
 import 'server-only';
 import { api } from '@/lib/api';
+import { normalizePaginated } from '@/lib/pagination';
 import type { RefundListItem, RefundStatus, BackendPaginated } from './types';
 
 export async function getRefunds(params?: {
@@ -12,5 +13,6 @@ export async function getRefunds(params?: {
   if (params?.page) query.set('page', String(params.page));
   if (params?.limit) query.set('limit', String(params.limit));
   const qs = query.toString();
-  return api.get<BackendPaginated<RefundListItem>>(`/payments/refunds${qs ? `?${qs}` : ''}`);
+  const raw = await api.get<unknown>(`/payments/refunds${qs ? `?${qs}` : ''}`);
+  return normalizePaginated<RefundListItem>(raw, { page: params?.page, limit: params?.limit });
 }

@@ -15,7 +15,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { KycGallery } from '@/components/kyc-gallery';
 import { reviewVendorAction } from '@/server/actions/vendors-actions';
+import { requestSidebarRefresh } from '@/lib/sidebar/events';
 import type { VendorListItem, VendorPendingItem } from '@/lib/vendors/types';
 
 type Vendor = Pick<VendorListItem | VendorPendingItem, 'id' | 'shopName'> & {
@@ -44,6 +46,7 @@ export function ReviewDialog({ vendor, action, children }: ReviewDialogProps) {
         toast.success(action === 'approve' ? 'Vendeur approuvé !' : 'Vendeur refusé.');
         setOpen(false);
         setReason('');
+        requestSidebarRefresh();
       } else {
         toast.error(result.error);
       }
@@ -53,7 +56,7 @@ export function ReviewDialog({ vendor, action, children }: ReviewDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {action === 'approve' ? (
@@ -69,6 +72,17 @@ export function ReviewDialog({ vendor, action, children }: ReviewDialogProps) {
               : `Vous allez refuser la candidature de ${vendor.user.prenom} ${vendor.user.name} pour « ${vendor.shopName} ».`}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Pièces du dossier (identité, selfie, photos d'exemple) : l'admin les contrôle
+            AVANT d'approuver ou de refuser. Montée seulement à l'ouverture de la fenêtre. */}
+        {open && (
+          <KycGallery
+            target="vendor"
+            id={vendor.id}
+            ownerName={`${vendor.user.prenom} ${vendor.user.name}`.trim() || vendor.shopName}
+            active={open}
+          />
+        )}
 
         {action === 'reject' && (
           <div className="space-y-2">

@@ -2,37 +2,18 @@ import type { DashboardPeriod, RevenuePoint } from '@/lib/dashboard/types';
 
 /**
  * Helpers de formatage pour le dashboard.
- * Locale : fr-FR · Devise : XOF (Franc CFA)
+ * Locale : fr-FR · Devise : FCFA (Franc CFA)
+ *
+ * Les montants passent par src/lib/format.ts : une seule écriture « FCFA »
+ * (Intl XOF produisait « F CFA »). Les anciens noms formatXOF* restent
+ * exportés pour ne pas casser les graphiques qui les importent.
  */
 
-const xofFormatter = new Intl.NumberFormat('fr-FR', {
-  style: 'currency',
-  currency: 'XOF',
-  maximumFractionDigits: 0, // le FCFA ne s'écrit pas avec des centimes
-});
-
-const numberFormatter = new Intl.NumberFormat('fr-FR');
-
-/** 1234567 → "1 234 567 F CFA" */
-export function formatXOF(amount: number): string {
-  return xofFormatter.format(amount);
-}
-
-/** Version compacte pour les cartes : 1 234 567 → "1,23 M F" */
-export function formatXOFCompact(amount: number): string {
-  if (amount >= 1_000_000) {
-    return `${(amount / 1_000_000).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} M F`;
-  }
-  if (amount >= 10_000) {
-    return `${(amount / 1_000).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} k F`;
-  }
-  return formatXOF(amount);
-}
-
-/** 1234 → "1 234" */
-export function formatNumber(n: number): string {
-  return numberFormatter.format(n);
-}
+export {
+  formatFCFA as formatXOF,
+  formatFCFACompact as formatXOFCompact,
+  formatNumber,
+} from '@/lib/format';
 
 /** '2026-06-10' → '10 juin' */
 export function formatChartDate(dateStr: string): string {

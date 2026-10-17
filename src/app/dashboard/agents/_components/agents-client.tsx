@@ -2,14 +2,13 @@
 
 import { useState, useTransition, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
 import {
   Search,
   ChevronLeft,
   ChevronRight,
   ShieldOff,
+  ShieldCheck,
   Clock,
   CheckCircle2,
   XCircle,
@@ -22,9 +21,22 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { LocalDate } from '@/components/local-date';
+import { cn } from '@/lib/utils';
+import { toNumber } from '@/lib/format';
+import { AGENT_STATUS, agentStatusMeta, vehicleLabel } from '@/lib/status-meta';
 import { ReviewAgentDialog } from './review-agent-dialog';
-import { blockAgentAction } from '@/server/actions/agents-actions';
-import type { AgentListItem, AgentPendingItem, AgentStatus, BackendPaginated } from '@/lib/agents/types';
+import { blockAgentAction, unblockAgentAction } from '@/server/actions/agents-actions';
+import type { AgentListItem, AgentPendingItem, BackendPaginated } from '@/lib/agents/types';
 
 interface AgentsClientProps {
   allData: BackendPaginated<AgentListItem>;
@@ -33,59 +45,156 @@ interface AgentsClientProps {
   currentPage: number;
 }
 
-const STATUS_COLORS: Record<AgentStatus, string> = {
-  PENDING: 'border-amber-500/40 text-amber-600 bg-amber-500/5',
-  APPROVED: 'border-emerald-500/40 text-emerald-600 bg-emerald-500/5',
-  REJECTED: 'border-destructive/40 text-destructive bg-destructive/5',
-  BLOCKED: 'border-slate-500/40 text-slate-600 bg-slate-500/5',
-};
+type ReviewTarget = Pick<AgentListItem, 'id' | 'user' | 'vehicleType' | 'ville'>;
 
-const STATUS_LABELS: Record<AgentStatus, string> = {
-  PENDING: 'En attente',
-  APPROVED: 'Approuvé',
-  REJECTED: 'Refusé',
-  BLOCKED: 'Bloqué',
-};
-
-const VEHICLE_LABELS: Record<string, string> = {
-  MOTO: 'Moto',
-  VOITURE: 'Voiture',
-  TRICYCLE: 'Tricycle',
-  VELO: 'Vélo',
-};
-
-function AgentStatusBadge({ status }: { status: AgentStatus }) {
+function AgentStatusBadge({ status }: { status: string }) {
+  const meta = agentStatusMeta(status);
   return (
-    <Badge variant="outline" className={`text-[11px] ${STATUS_COLORS[status]}`}>
-      {STATUS_LABELS[status]}
+    <Badge variant="outline" className={cn('text-[11px]', meta.badge)}>
+      {meta.label}
     </Badge>
   );
 }
 
-function AgentBlockButton({ agentId }: { agentId: string }) {
+function fullName(user: { prenom?: string | null; name?: string | null } | null | undefined): string {
+  return `${user?.prenom ?? ''} ${user?.name ?? ''}`.trim() || 'Livreur sans nom';
+}
+
+function getInitials(user: { prenom?: string | null; name?: string | null } | null | undefined) {
+  return `${(user?.prenom ?? '')[0] ?? ''}${(user?.name ?? '')[0] ?? ''}`.toUpperCase() || '?';
+}
+
+/** Bloquer un livreur le retire des livraisons et lui envoie un e-mail : confirmation obligatoire. */
+function AgentBlockButton({ agent }: { agent: ReviewTarget }) {
+  const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  const confirm = () =>
+    startTransition(async () => {
+      const result = await blockAgentAction(agent.id);
+      if (result.success) {
+        toast.success('Livreur bloqué');
+        setOpen(false);
+      } else {
+        toast.error(result.error);
+      }
+    });
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!isPending) setOpen(o); }}>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-[11px] text-muted-foreground hover:text-destructive"
+        >
+          <ShieldOff className="h-3 w-3 mr-1" />
+          Bloquer
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ShieldOff className="h-4 w-4 text-destructive" />
+            Bloquer ce livreur ?
+          </DialogTitle>
+          <DialogDescription>
+            {fullName(agent.user)} ({vehicleLabel(agent.vehicleType)} — {agent.ville})
+          </DialogDescription>
+        </DialogHeader>
+        <p className="text-[13px] text-muted-foreground">
+          Le livreur ne pourra plus recevoir de livraisons et sera prévenu par e-mail.
+          Vous pourrez le débloquer ensuite depuis cette page.
+        </p>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
+            Annuler
+          </Button>
+          <Button variant="destructive" onClick={confirm} disabled={isPending}>
+            {isPending && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+            Bloquer
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AgentUnblockButton({ agentId }: { agentId: string }) {
   const [isPending, startTransition] = useTransition();
   return (
     <Button
-      variant="ghost"
+      variant="outline"
       size="sm"
-      className="h-7 text-[11px] text-muted-foreground hover:text-destructive"
+      className="h-7 text-[11px] text-emerald-600 border-emerald-500/40 hover:bg-emerald-500/5"
       disabled={isPending}
       onClick={() => {
         startTransition(async () => {
-          const result = await blockAgentAction(agentId);
-          if (result.success) toast.success('Livreur suspendu');
+          const result = await unblockAgentAction(agentId);
+          if (result.success) toast.success('Livreur débloqué');
           else toast.error(result.error);
         });
       }}
     >
-      {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldOff className="h-3 w-3 mr-1" />}
-      Suspendre
+      {isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <ShieldCheck className="h-3 w-3 mr-1" />}
+      Débloquer
     </Button>
   );
 }
 
-function getInitials(prenom: string, name: string) {
-  return `${prenom[0] ?? ''}${name[0] ?? ''}`.toUpperCase();
+/** Valider / Refuser une candidature « en attente ». */
+function ReviewButtons({ agent }: { agent: ReviewTarget }) {
+  const target = { id: agent.id, user: agent.user, vehicleType: agent.vehicleType, ville: agent.ville };
+  return (
+    <>
+      <ReviewAgentDialog agent={target} action="approve">
+        <Button size="sm" variant="outline" className="h-7 text-[11px] text-emerald-600 border-emerald-500/40 hover:bg-emerald-500/5">
+          <CheckCircle2 className="h-3 w-3 mr-1" />
+          Valider
+        </Button>
+      </ReviewAgentDialog>
+      <ReviewAgentDialog agent={target} action="reject">
+        <Button size="sm" variant="outline" className="h-7 text-[11px] text-destructive border-destructive/40 hover:bg-destructive/5">
+          <XCircle className="h-3 w-3 mr-1" />
+          Refuser
+        </Button>
+      </ReviewAgentDialog>
+    </>
+  );
+}
+
+/** Boutons selon le statut serveur : en attente → Valider/Refuser · approuvé → Bloquer · bloqué → Débloquer. */
+function AgentActions({ agent }: { agent: AgentListItem }) {
+  return (
+    <>
+      {agent.status === AGENT_STATUS.PENDING && <ReviewButtons agent={agent} />}
+      {agent.status === AGENT_STATUS.APPROVED && <AgentBlockButton agent={agent} />}
+      {agent.status === AGENT_STATUS.BLOCKED && <AgentUnblockButton agentId={agent.id} />}
+    </>
+  );
+}
+
+function Rating({ agent }: { agent: AgentListItem }) {
+  if (!(agent.totalLivraisons > 0)) return <span className="text-muted-foreground">—</span>;
+  // noteMoyenne et tauxDeReussite arrivent en TEXTE : conversion obligatoire avant toFixed.
+  const note = toNumber(agent.noteMoyenne);
+  return (
+    <span className="flex items-center gap-1 text-amber-500 font-medium">
+      <Star className="h-3 w-3 fill-amber-500" />
+      {note.toFixed(1)}
+    </span>
+  );
+}
+
+function Performance({ agent }: { agent: AgentListItem }) {
+  const livraisons = toNumber(agent.totalLivraisons);
+  if (livraisons <= 0) return <span className="text-muted-foreground">—</span>;
+  const taux = toNumber(agent.tauxDeReussite);
+  return (
+    <span className="text-muted-foreground">
+      {livraisons} livraison{livraisons > 1 ? 's' : ''} · {taux.toFixed(0)} % réussies
+    </span>
+  );
 }
 
 export function AgentsClient({ allData, pendingData, activeTab, currentPage }: AgentsClientProps) {
@@ -111,10 +220,10 @@ export function AgentsClient({ allData, pendingData, activeTab, currentPage }: A
     const q = search.toLowerCase();
     return allData.data.filter(
       (a) =>
-        a.user.prenom.toLowerCase().includes(q) ||
-        a.user.name.toLowerCase().includes(q) ||
-        a.user.email.toLowerCase().includes(q) ||
-        a.ville.toLowerCase().includes(q),
+        (a.user?.prenom ?? '').toLowerCase().includes(q) ||
+        (a.user?.name ?? '').toLowerCase().includes(q) ||
+        (a.user?.email ?? '').toLowerCase().includes(q) ||
+        (a.ville ?? '').toLowerCase().includes(q),
     );
   }, [allData.data, search]);
 
@@ -123,20 +232,22 @@ export function AgentsClient({ allData, pendingData, activeTab, currentPage }: A
     const q = search.toLowerCase();
     return pendingData.filter(
       (a) =>
-        a.user.prenom.toLowerCase().includes(q) ||
-        a.user.name.toLowerCase().includes(q) ||
-        a.ville.toLowerCase().includes(q),
+        (a.user?.prenom ?? '').toLowerCase().includes(q) ||
+        (a.user?.name ?? '').toLowerCase().includes(q) ||
+        (a.user?.email ?? '').toLowerCase().includes(q) ||
+        (a.ville ?? '').toLowerCase().includes(q),
     );
   }, [pendingData, search]);
 
   return (
     <div className="space-y-4">
-      {/* Tabs */}
+      {/* Onglets */}
       <div className="flex items-center gap-2">
         <Button
           variant={tab === 'all' ? 'default' : 'outline'}
           size="sm"
           className="h-9 gap-1.5"
+          aria-pressed={tab === 'all'}
           onClick={() => setTab('all')}
         >
           <Truck className="h-3.5 w-3.5" />
@@ -147,6 +258,7 @@ export function AgentsClient({ allData, pendingData, activeTab, currentPage }: A
           variant={tab === 'pending' ? 'default' : 'outline'}
           size="sm"
           className="h-9 gap-1.5"
+          aria-pressed={tab === 'pending'}
           onClick={() => setTab('pending')}
         >
           <Clock className="h-3.5 w-3.5" />
@@ -170,6 +282,9 @@ export function AgentsClient({ allData, pendingData, activeTab, currentPage }: A
               className="pl-8 h-9 text-[13px]"
             />
           </div>
+          {search.trim() && tab === 'all' && allData.pages > 1 && (
+            <p className="text-[11px] text-muted-foreground">La recherche porte uniquement sur les livreurs de cette page.</p>
+          )}
         </CardHeader>
 
         <CardContent className="p-0">
@@ -178,114 +293,88 @@ export function AgentsClient({ allData, pendingData, activeTab, currentPage }: A
               {filteredAll.length === 0 ? (
                 <EmptyState label="Aucun livreur trouvé" />
               ) : (
-                <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full text-[13px]">
-                    <thead>
-                      <tr className="border-b border-border bg-muted/30">
-                        <th className="text-left font-medium text-muted-foreground px-6 py-2.5">Livreur</th>
-                        <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Ville</th>
-                        <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Véhicule</th>
-                        <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Note</th>
-                        <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Statut</th>
-                        <th className="px-4 py-2.5" />
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {filteredAll.map((agent) => (
-                        <tr key={agent.id} className="group hover:bg-muted/20 transition-colors">
-                          <td className="px-6 py-3.5">
-                            <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-full bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center shrink-0">
-                                {getInitials(agent.user.prenom, agent.user.name)}
-                              </div>
-                              <div>
-                                <p className="font-medium text-foreground">
-                                  {agent.user.prenom} {agent.user.name}
-                                </p>
-                                <p className="text-[11px] text-muted-foreground">{agent.user.email}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3.5 text-muted-foreground">{agent.ville}</td>
-                          <td className="px-4 py-3.5 text-muted-foreground">
-                            {VEHICLE_LABELS[agent.vehicleType] ?? agent.vehicleType}
-                          </td>
-                          <td className="px-4 py-3.5">
-                            {agent.totalLivraisons > 0 ? (
-                              <span className="flex items-center gap-1 text-amber-500 font-medium">
-                                <Star className="h-3 w-3 fill-amber-500" />
-                                {agent.noteMoyenne.toFixed(1)}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3.5">
-                            <AgentStatusBadge status={agent.status} />
-                          </td>
-                          <td className="px-4 py-3.5 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              {agent.status === 'PENDING' && (
-                                <>
-                                  <ReviewAgentDialog agent={{ id: agent.id, user: agent.user, vehicleType: agent.vehicleType, ville: agent.ville }} action="approve">
-                                    <Button size="sm" variant="outline" className="h-7 text-[11px] text-emerald-600 border-emerald-500/40 hover:bg-emerald-500/5">
-                                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                                      Valider
-                                    </Button>
-                                  </ReviewAgentDialog>
-                                  <ReviewAgentDialog agent={{ id: agent.id, user: agent.user, vehicleType: agent.vehicleType, ville: agent.ville }} action="reject">
-                                    <Button size="sm" variant="outline" className="h-7 text-[11px] text-destructive border-destructive/40 hover:bg-destructive/5">
-                                      <XCircle className="h-3 w-3 mr-1" />
-                                      Refuser
-                                    </Button>
-                                  </ReviewAgentDialog>
-                                </>
-                              )}
-                              {agent.status === 'APPROVED' && (
-                                <AgentBlockButton agentId={agent.id} />
-                              )}
-                            </div>
-                          </td>
+                <>
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="w-full text-[13px]">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/30">
+                          <th className="text-left font-medium text-muted-foreground px-6 py-2.5">Livreur</th>
+                          <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Ville</th>
+                          <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Véhicule</th>
+                          <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Note</th>
+                          <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Livraisons</th>
+                          <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Statut</th>
+                          <th className="px-4 py-2.5" />
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {filteredAll.map((agent) => (
+                          <tr key={agent.id} className="group hover:bg-muted/20 transition-colors">
+                            <td className="px-6 py-3.5">
+                              <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-full bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center shrink-0">
+                                  {getInitials(agent.user)}
+                                </div>
+                                <div>
+                                  <p className="font-medium text-foreground">{fullName(agent.user)}</p>
+                                  <p className="text-[11px] text-muted-foreground">{agent.user?.email ?? '—'}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3.5 text-muted-foreground">{agent.ville || '—'}</td>
+                            <td className="px-4 py-3.5 text-muted-foreground">{vehicleLabel(agent.vehicleType)}</td>
+                            <td className="px-4 py-3.5"><Rating agent={agent} /></td>
+                            <td className="px-4 py-3.5 text-[12px]"><Performance agent={agent} /></td>
+                            <td className="px-4 py-3.5">
+                              <AgentStatusBadge status={agent.status} />
+                            </td>
+                            <td className="px-4 py-3.5 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <AgentActions agent={agent} />
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile */}
+                  <div className="sm:hidden divide-y divide-border">
+                    {filteredAll.map((agent) => (
+                      <div key={agent.id} className="flex items-start gap-3 px-4 py-3.5">
+                        <div className="h-9 w-9 rounded-full bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center shrink-0">
+                          {getInitials(agent.user)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium truncate">{fullName(agent.user)}</p>
+                          <p className="text-[11px] text-muted-foreground">{agent.ville || '—'} · {vehicleLabel(agent.vehicleType)}</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <AgentStatusBadge status={agent.status} />
+                            <AgentActions agent={agent} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
 
-              {/* Mobile */}
-              <div className="sm:hidden divide-y divide-border">
-                {filteredAll.map((agent) => (
-                  <div key={agent.id} className="flex items-center gap-3 px-4 py-3.5">
-                    <div className="h-9 w-9 rounded-full bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center shrink-0">
-                      {getInitials(agent.user.prenom, agent.user.name)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium truncate">
-                        {agent.user.prenom} {agent.user.name}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">{agent.ville} · {VEHICLE_LABELS[agent.vehicleType]}</p>
-                      <div className="mt-1">
-                        <AgentStatusBadge status={agent.status} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {allData.pages > 1 && (
+              {allData.total > 0 && (
                 <div className="flex items-center justify-between px-6 py-3.5 border-t border-border">
                   <p className="text-[12px] text-muted-foreground">
-                    Page {currentPage} sur {allData.pages}
+                    {allData.total} livreur{allData.total > 1 ? 's' : ''} · Page {currentPage} sur {Math.max(1, allData.pages)}
                   </p>
-                  <div className="flex gap-1">
-                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1}>
-                      <ChevronLeft className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= allData.pages}>
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+                  {allData.pages > 1 && (
+                    <div className="flex gap-1">
+                      <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Page précédente" onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1}>
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Page suivante" onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= allData.pages}>
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </>
@@ -313,34 +402,19 @@ export function AgentsClient({ allData, pendingData, activeTab, currentPage }: A
                               <div className="flex items-center gap-3">
                                 <div className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
                                 <div>
-                                  <p className="font-medium text-foreground">
-                                    {agent.user.prenom} {agent.user.name}
-                                  </p>
-                                  <p className="text-[11px] text-muted-foreground">{agent.user.email}</p>
+                                  <p className="font-medium text-foreground">{fullName(agent.user)}</p>
+                                  <p className="text-[11px] text-muted-foreground">{agent.user?.email ?? '—'}</p>
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3.5 text-muted-foreground">{agent.ville}</td>
+                            <td className="px-4 py-3.5 text-muted-foreground">{agent.ville || '—'}</td>
+                            <td className="px-4 py-3.5 text-muted-foreground">{vehicleLabel(agent.vehicleType)}</td>
                             <td className="px-4 py-3.5 text-muted-foreground">
-                              {VEHICLE_LABELS[agent.vehicleType] ?? agent.vehicleType}
-                            </td>
-                            <td className="px-4 py-3.5 text-muted-foreground">
-                              {format(new Date(agent.createdAt), 'd MMM yyyy', { locale: fr })}
+                              <LocalDate iso={agent.createdAt} pattern="d MMM yyyy" />
                             </td>
                             <td className="px-4 py-3.5 text-right">
                               <div className="flex items-center justify-end gap-1">
-                                <ReviewAgentDialog agent={{ id: agent.id, user: agent.user, vehicleType: agent.vehicleType, ville: agent.ville }} action="approve">
-                                  <Button size="sm" variant="outline" className="h-7 text-[11px] text-emerald-600 border-emerald-500/40 hover:bg-emerald-500/5">
-                                    <CheckCircle2 className="h-3 w-3 mr-1" />
-                                    Valider
-                                  </Button>
-                                </ReviewAgentDialog>
-                                <ReviewAgentDialog agent={{ id: agent.id, user: agent.user, vehicleType: agent.vehicleType, ville: agent.ville }} action="reject">
-                                  <Button size="sm" variant="outline" className="h-7 text-[11px] text-destructive border-destructive/40 hover:bg-destructive/5">
-                                    <XCircle className="h-3 w-3 mr-1" />
-                                    Refuser
-                                  </Button>
-                                </ReviewAgentDialog>
+                                <ReviewButtons agent={agent} />
                               </div>
                             </td>
                           </tr>
@@ -349,32 +423,19 @@ export function AgentsClient({ allData, pendingData, activeTab, currentPage }: A
                     </table>
                   </div>
 
-                  {/* Mobile pending */}
+                  {/* Mobile : en attente */}
                   <div className="sm:hidden divide-y divide-border">
                     {filteredPending.map((agent) => (
                       <div key={agent.id} className="px-4 py-3.5 space-y-2">
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
-                          <p className="text-[13px] font-medium">
-                            {agent.user.prenom} {agent.user.name}
-                          </p>
+                          <p className="text-[13px] font-medium">{fullName(agent.user)}</p>
                         </div>
                         <p className="text-[12px] text-muted-foreground pl-4">
-                          {agent.ville} · {VEHICLE_LABELS[agent.vehicleType]}
+                          {agent.ville || '—'} · {vehicleLabel(agent.vehicleType)}
                         </p>
                         <div className="flex gap-2 pl-4">
-                          <ReviewAgentDialog agent={{ id: agent.id, user: agent.user, vehicleType: agent.vehicleType, ville: agent.ville }} action="approve">
-                            <Button size="sm" variant="outline" className="h-7 text-[11px] text-emerald-600 border-emerald-500/40">
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              Valider
-                            </Button>
-                          </ReviewAgentDialog>
-                          <ReviewAgentDialog agent={{ id: agent.id, user: agent.user, vehicleType: agent.vehicleType, ville: agent.ville }} action="reject">
-                            <Button size="sm" variant="outline" className="h-7 text-[11px] text-destructive border-destructive/40">
-                              <XCircle className="h-3 w-3 mr-1" />
-                              Refuser
-                            </Button>
-                          </ReviewAgentDialog>
+                          <ReviewButtons agent={agent} />
                         </div>
                       </div>
                     ))}

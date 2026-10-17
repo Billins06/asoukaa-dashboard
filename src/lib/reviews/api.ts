@@ -1,5 +1,6 @@
 import 'server-only';
 import { api } from '@/lib/api';
+import { normalizePaginated } from '@/lib/pagination';
 import type { ReviewListItem, ReviewStatus, BackendPaginated } from './types';
 
 export async function getReviews(params?: {
@@ -12,7 +13,8 @@ export async function getReviews(params?: {
   if (params?.page) query.set('page', String(params.page));
   if (params?.limit) query.set('limit', String(params.limit));
   const qs = query.toString();
-  return api.get<BackendPaginated<ReviewListItem>>(`/reviews${qs ? `?${qs}` : ''}`);
+  const raw = await api.get<unknown>(`/reviews${qs ? `?${qs}` : ''}`);
+  return normalizePaginated<ReviewListItem>(raw, { page: params?.page, limit: params?.limit });
 }
 
 export async function getPendingReviews(params?: {
@@ -23,5 +25,6 @@ export async function getPendingReviews(params?: {
   if (params?.page) query.set('page', String(params.page));
   if (params?.limit) query.set('limit', String(params.limit));
   const qs = query.toString();
-  return api.get<BackendPaginated<ReviewListItem>>(`/reviews/pending${qs ? `?${qs}` : ''}`);
+  const raw = await api.get<unknown>(`/reviews/pending${qs ? `?${qs}` : ''}`);
+  return normalizePaginated<ReviewListItem>(raw, { page: params?.page, limit: params?.limit });
 }

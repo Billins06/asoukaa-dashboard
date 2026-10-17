@@ -1,15 +1,15 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
+import { unstable_rethrow } from 'next/navigation';
 import { AlertCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { getReviews } from '@/lib/reviews/api';
+import { parsePageParam } from '@/lib/format';
+import { isReviewStatus, REVIEW_STATUS } from '@/lib/status-meta';
 import { ReviewsClient } from './_components/reviews-client';
-import type { ReviewStatus } from '@/lib/reviews/types';
 
 export const metadata: Metadata = { title: 'Avis' };
-
-const VALID_STATUSES: ReviewStatus[] = ['PENDING', 'APPROVED', 'REJECTED'];
 
 interface PageProps {
   searchParams: Promise<{ status?: string; page?: string }>;
@@ -17,16 +17,23 @@ interface PageProps {
 
 async function ReviewsContent({ searchParams }: PageProps) {
   const params = await searchParams;
-  const rawStatus = params.status ?? 'PENDING';
-  const page = Math.max(1, Number(params.page ?? '1'));
-  const status = VALID_STATUSES.includes(rawStatus as ReviewStatus)
-    ? (rawStatus as ReviewStatus)
-    : undefined;
+  const page = parsePageParam(params.page);
 
+  // Filtre par défaut : les avis « en attente » (c'est le travail du modérateur).
+  // « all » = tous les avis ; une valeur inconnue retombe sur le défaut.
+  const activeStatus =
+    params.status === 'all'
+      ? 'all'
+      : isReviewStatus(params.status)
+        ? params.status
+        : REVIEW_STATUS.PENDING;
+  const status = activeStatus === 'all' ? undefined : activeStatus;
+
+  let data: Awaited<ReturnType<typeof getReviews>>;
   try {
-    const data = await getReviews({ status, page, limit: 20 });
-    return <ReviewsClient data={data} currentPage={page} activeStatus={rawStatus} />;
+    data = await getReviews({ status, page, limit: 20 });
   } catch (error) {
+    unstable_rethrow(error);
     const msg = error instanceof Error ? error.message : 'Erreur inconnue';
     return (
       <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-[13px] text-destructive">
@@ -35,6 +42,8 @@ async function ReviewsContent({ searchParams }: PageProps) {
       </div>
     );
   }
+
+  return <ReviewsClient data={data} currentPage={page} activeStatus={activeStatus} />;
 }
 
 function ReviewsSkeleton() {

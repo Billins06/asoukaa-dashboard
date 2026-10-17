@@ -1,4 +1,8 @@
-export type CommissionStatus = 'PENDING' | 'PAID';
+import type { CommissionStatus } from '@/lib/status-meta';
+import type { Paginated } from '@/lib/pagination';
+
+/** Valeurs EXACTES du serveur : « en attente » · « payé » (voir lib/status-meta.ts). */
+export type { CommissionStatus };
 
 export interface CommissionVendor {
   id: string;
@@ -10,35 +14,33 @@ export interface CommissionOrder {
   orderNumber: string;
 }
 
+/** Les montants et le taux sont des décimaux Postgres : TEXTE côté serveur ("2500.00"). */
 export interface CommissionListItem {
   id: string;
   orderId: string;
-  order: CommissionOrder;
+  order: CommissionOrder | null;
   vendorId: string;
-  vendor: CommissionVendor;
-  totalCommande: number;
-  taux: number;
-  montantCommission: number;
-  commissionVendor: number;
+  vendor: CommissionVendor | null;
+  totalCommande: string | number;
+  taux: string | number;
+  montantCommission: string | number;
+  commissionVendor: string | number;
   status: CommissionStatus;
   paidAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface CommissionStats {
-  totalCommissions: number;
-  totalPaid: number;
-  totalPending: number;
-  montantTotal: number;
-  montantPaid: number;
-  montantPending: number;
+export interface CommissionCounter {
+  count: number;
+  amount: number;
 }
 
-export interface BackendPaginated<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  pages: number;
+/** Réponse réelle de GET /admin/commissions/stats/overview (commissions.service.ts › getStatistics). */
+export interface CommissionStats {
+  pending: CommissionCounter;
+  paid: CommissionCounter;
+  total: CommissionCounter;
 }
+
+export type BackendPaginated<T> = Paginated<T>;

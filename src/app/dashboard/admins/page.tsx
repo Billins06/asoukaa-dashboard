@@ -1,9 +1,11 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
+import { unstable_rethrow } from 'next/navigation';
 import { AlertCircle, ShieldCheck } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { getAdmins } from '@/lib/admins/api';
+import { parsePageParam } from '@/lib/format';
 import { AdminsClient } from './_components/admins-client';
 
 export const metadata: Metadata = { title: 'Administrateurs' };
@@ -14,12 +16,13 @@ interface PageProps {
 
 async function AdminsContent({ searchParams }: PageProps) {
   const params = await searchParams;
-  const page = Math.max(1, Number(params.page ?? '1'));
+  const page = parsePageParam(params.page);
 
+  let data: Awaited<ReturnType<typeof getAdmins>>;
   try {
-    const data = await getAdmins(page);
-    return <AdminsClient data={data} currentPage={page} />;
+    data = await getAdmins(page);
   } catch (error) {
+    unstable_rethrow(error);
     const msg = error instanceof Error ? error.message : 'Erreur inconnue';
     return (
       <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-[13px] text-destructive">
@@ -28,6 +31,8 @@ async function AdminsContent({ searchParams }: PageProps) {
       </div>
     );
   }
+
+  return <AdminsClient data={data} currentPage={page} />;
 }
 
 function AdminsSkeleton() {

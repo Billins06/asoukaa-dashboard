@@ -32,9 +32,28 @@ export async function getAccessToken(): Promise<string | undefined> {
 import { cache } from 'react';
 import { API_CONFIG } from './constants';
 
-export const getCurrentUser = cache(async (): Promise<AdminUser | null> => {
+/**
+ * État de la session, en distinguant 3 cas qu'un simple « null » mélangeait :
+ *  - `ok`              : jeton valide, utilisateur chargé ;
+ *  - `unauthenticated` : pas de cookie, ou jeton refusé (401/403 : expiré, révoqué,
+ *                        admin désactivé) → il faut se reconnecter ;
+ *  - `unavailable`     : serveur injoignable / en erreur (5xx, délai dépassé) → la
+ *                        session n'est PAS forcément morte : il ne faut surtout pas
+ *                        supprimer le cookie, juste afficher une erreur « Réessayer ».
+ */
+export type SessionState =
+  | { status: 'ok'; user: AdminUser }
+  | { status: 'unauthenticated' }
+  | { status: 'unavailable' };
+
+export const getSessionState = cache(async (): Promise<SessionState> => {
   const token = await getAccessToken();
-  if (!token) return null;
+  if (!token) return { status: 'unauthenticated' };
+
+  // Même délai maximal que lib/api.ts : un backend qui ne répond pas ne doit pas
+  // bloquer le rendu indéfiniment.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.timeout);
 
   try {
     const response = await fetch(`${API_CONFIG.baseUrl}/auth/admin/me`, {
@@ -43,21 +62,34 @@ export const getCurrentUser = cache(async (): Promise<AdminUser | null> => {
       },
       // Pas de cache HTTP : on veut toujours la version fraîche
       cache: 'no-store',
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
-    if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
       // Token invalide / expiré / admin supprimé ou désactivé
-      return null;
+      return { status: 'unauthenticated' };
+    }
+    if (!response.ok) {
+      return { status: 'unavailable' };
     }
 
-    const data = await response.json();
-    return data as AdminUser;
+    const data = (await response.json().catch(() => null)) as AdminUser | null;
+    if (!data || typeof data !== 'object') return { status: 'unavailable' };
+    return { status: 'ok', user: data };
   } catch (error) {
+    clearTimeout(timeoutId);
     // ⚠️ En prod : envoyer cette erreur à Sentry / Datadog
     // Ne pas log le token, jamais.
-    console.error('[getCurrentUser] Backend unreachable:', error instanceof Error ? error.message : 'unknown');
-    return null;
+    console.error('[getSessionState] Backend unreachable:', error instanceof Error ? error.message : 'unknown');
+    return { status: 'unavailable' };
   }
+});
+
+/** Compatibilité : null si non connecté OU serveur injoignable (voir getSessionState). */
+export const getCurrentUser = cache(async (): Promise<AdminUser | null> => {
+  const state = await getSessionState();
+  return state.status === 'ok' ? state.user : null;
 });
 
 /**

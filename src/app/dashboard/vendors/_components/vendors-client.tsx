@@ -2,14 +2,13 @@
 
 import { useState, useTransition, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
 import {
   Search,
   ChevronLeft,
   ChevronRight,
   ShieldOff,
+  ShieldCheck,
   Clock,
   CheckCircle2,
   XCircle,
@@ -21,8 +20,11 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmDialog } from '@/components/confirm-dialog';
+import { LocalDate } from '@/components/local-date';
 import { ReviewDialog } from './review-dialog';
-import { blockVendorAction } from '@/server/actions/vendors-actions';
+import { VendorCategories } from './vendor-categories';
+import { blockVendorAction, unblockVendorAction } from '@/server/actions/vendors-actions';
 import type { VendorListItem, VendorPendingItem, BackendPaginated, VendorStatus } from '@/lib/vendors/types';
 
 interface VendorsClientProps {
@@ -33,17 +35,17 @@ interface VendorsClientProps {
 }
 
 const STATUS_LABELS: Record<VendorStatus, string> = {
-  PENDING: 'En attente',
-  APPROVED: 'Approuvé',
-  REJECTED: 'Refusé',
-  BLOCKED: 'Bloqué',
+  'en attente': 'En attente',
+  'approuvé': 'Approuvé',
+  'rejeté': 'Refusé',
+  'bloqué': 'Bloqué',
 };
 
 const STATUS_COLORS: Record<VendorStatus, string> = {
-  PENDING: 'border-amber-500/40 text-amber-600 bg-amber-500/5',
-  APPROVED: 'border-emerald-500/40 text-emerald-600 bg-emerald-500/5',
-  REJECTED: 'border-destructive/40 text-destructive bg-destructive/5',
-  BLOCKED: 'border-slate-500/40 text-slate-600 bg-slate-500/5',
+  'en attente': 'border-amber-500/40 text-amber-600 bg-amber-500/5',
+  'approuvé': 'border-emerald-500/40 text-emerald-600 bg-emerald-500/5',
+  'rejeté': 'border-destructive/40 text-destructive bg-destructive/5',
+  'bloqué': 'border-slate-500/40 text-slate-600 bg-slate-500/5',
 };
 
 function VendorStatusBadge({ status }: { status: VendorStatus }) {
@@ -54,24 +56,55 @@ function VendorStatusBadge({ status }: { status: VendorStatus }) {
   );
 }
 
-function BlockButton({ vendorId }: { vendorId: string }) {
+function BlockButton({ vendorId, shopName }: { vendorId: string; shopName?: string }) {
+  const handleConfirm = async () => {
+    try {
+      const result = await blockVendorAction(vendorId);
+      if (result.success) toast.success('Vendeur suspendu');
+      else toast.error(result.error);
+    } catch {
+      toast.error('Le serveur ne répond pas. Réessayez dans un instant.');
+    }
+  };
+  return (
+    <ConfirmDialog
+      trigger={
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-[11px] text-muted-foreground hover:text-destructive"
+        >
+          <ShieldOff className="h-3 w-3 mr-1" />
+          Suspendre
+        </Button>
+      }
+      title="Suspendre ce vendeur ?"
+      description={`${shopName ? `La boutique « ${shopName} »` : 'Cette boutique'} ne sera plus visible ni accessible aux clients tant que le vendeur est suspendu. Vous pourrez le débloquer à tout moment.`}
+      confirmLabel="Suspendre"
+      tone="destructive"
+      onConfirm={handleConfirm}
+    />
+  );
+}
+
+function UnblockButton({ vendorId }: { vendorId: string }) {
   const [isPending, startTransition] = useTransition();
   return (
     <Button
-      variant="ghost"
+      variant="outline"
       size="sm"
-      className="h-7 text-[11px] text-muted-foreground hover:text-destructive"
+      className="h-7 text-[11px] text-emerald-600 border-emerald-500/40 hover:bg-emerald-500/5"
       disabled={isPending}
       onClick={() => {
         startTransition(async () => {
-          const result = await blockVendorAction(vendorId);
-          if (result.success) toast.success('Vendeur suspendu');
+          const result = await unblockVendorAction(vendorId);
+          if (result.success) toast.success('Vendeur débloqué');
           else toast.error(result.error);
         });
       }}
     >
-      {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldOff className="h-3 w-3 mr-1" />}
-      Suspendre
+      {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3 mr-1" />}
+      Débloquer
     </Button>
   );
 }
@@ -90,7 +123,7 @@ export function VendorsClient({ allData, pendingData, activeTab, currentPage }: 
 
   const goToPage = (p: number) => {
     const url = new URL(window.location.href);
-    url.searchParams.set('page', String(p));
+    url.searchParams.set('page', String(Math.max(1, p)));
     router.push(url.pathname + url.search);
   };
 
@@ -188,7 +221,7 @@ export function VendorsClient({ allData, pendingData, activeTab, currentPage }: 
                               </div>
                               <div>
                                 <p className="font-medium text-foreground">{vendor.shopName}</p>
-                                <p className="text-[11px] text-muted-foreground">{vendor.activityType}</p>
+                                <VendorCategories categories={vendor.categories} activityType={vendor.activityType} />
                               </div>
                             </div>
                           </td>
@@ -200,13 +233,11 @@ export function VendorsClient({ allData, pendingData, activeTab, currentPage }: 
                             <VendorStatusBadge status={vendor.status} />
                           </td>
                           <td className="px-4 py-3.5 text-muted-foreground">
-                            {vendor.submittedAt
-                              ? format(new Date(vendor.submittedAt), 'd MMM yyyy', { locale: fr })
-                              : '—'}
+                            <LocalDate iso={vendor.submittedAt} pattern="d MMM yyyy" />
                           </td>
                           <td className="px-4 py-3.5 text-right">
                             <div className="flex items-center justify-end gap-1">
-                              {vendor.status === 'PENDING' && (
+                              {vendor.status === 'en attente' && (
                                 <>
                                   <ReviewDialog vendor={vendor} action="approve">
                                     <Button size="sm" variant="outline" className="h-7 text-[11px] text-emerald-600 border-emerald-500/40 hover:bg-emerald-500/5">
@@ -222,8 +253,11 @@ export function VendorsClient({ allData, pendingData, activeTab, currentPage }: 
                                   </ReviewDialog>
                                 </>
                               )}
-                              {vendor.status === 'APPROVED' && (
-                                <BlockButton vendorId={vendor.id} />
+                              {vendor.status === 'approuvé' && (
+                                <BlockButton vendorId={vendor.id} shopName={vendor.shopName} />
+                              )}
+                              {vendor.status === 'bloqué' && (
+                                <UnblockButton vendorId={vendor.id} />
                               )}
                             </div>
                           </td>
@@ -282,7 +316,7 @@ export function VendorsClient({ allData, pendingData, activeTab, currentPage }: 
                                 <div className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
                                 <div>
                                   <p className="font-medium text-foreground">{vendor.shopName}</p>
-                                  <p className="text-[11px] text-muted-foreground">{vendor.activityType}</p>
+                                  <VendorCategories categories={vendor.categories} activityType={vendor.activityType} />
                                 </div>
                               </div>
                             </td>
@@ -291,9 +325,7 @@ export function VendorsClient({ allData, pendingData, activeTab, currentPage }: 
                               <p className="text-[11px] text-muted-foreground">{vendor.user.email}</p>
                             </td>
                             <td className="px-4 py-3.5 text-muted-foreground">
-                              {vendor.submittedAt
-                                ? format(new Date(vendor.submittedAt), 'd MMM yyyy', { locale: fr })
-                                : '—'}
+                              <LocalDate iso={vendor.submittedAt} pattern="d MMM yyyy" />
                             </td>
                             <td className="px-4 py-3.5">
                               <span className="text-[11px] text-muted-foreground">
@@ -369,7 +401,7 @@ function VendorMobileCard({ vendor }: { vendor: VendorListItem }) {
       <p className="text-[12px] text-muted-foreground">
         {vendor.user.prenom} {vendor.user.name} — {vendor.user.email}
       </p>
-      {vendor.status === 'PENDING' && (
+      {vendor.status === 'en attente' && (
         <div className="flex gap-2">
           <ReviewDialog vendor={vendor} action="approve">
             <Button size="sm" variant="outline" className="h-7 text-[11px] text-emerald-600 border-emerald-500/40">
@@ -383,6 +415,16 @@ function VendorMobileCard({ vendor }: { vendor: VendorListItem }) {
               Refuser
             </Button>
           </ReviewDialog>
+        </div>
+      )}
+      {vendor.status === 'approuvé' && (
+        <div className="flex gap-2">
+          <BlockButton vendorId={vendor.id} shopName={vendor.shopName} />
+        </div>
+      )}
+      {vendor.status === 'bloqué' && (
+        <div className="flex gap-2">
+          <UnblockButton vendorId={vendor.id} />
         </div>
       )}
     </div>

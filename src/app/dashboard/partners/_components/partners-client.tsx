@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmDialog } from '@/components/confirm-dialog';
+import { safeHttpUrl } from '@/lib/safe-url';
 import { PartnerFormDialog } from './partner-form-dialog';
 import { togglePartnerAction, deletePartnerAction } from '@/server/actions/partners-actions';
 import type { PartnerListItem, BackendPaginated } from '@/lib/partners/types';
@@ -20,7 +22,16 @@ interface PartnersClientProps {
 
 function RowActions({ partner }: { partner: PartnerListItem }) {
   const [isPendingToggle, startToggle] = useTransition();
-  const [isPendingDelete, startDelete] = useTransition();
+
+  const handleDelete = async () => {
+    try {
+      const r = await deletePartnerAction(partner.id);
+      if (!r.success) toast.error(r.error);
+      else toast.success('Partenaire supprimé');
+    } catch {
+      toast.error('Le serveur ne répond pas. Réessayez dans un instant.');
+    }
+  };
 
   return (
     <div className="flex items-center gap-0.5 justify-end">
@@ -34,6 +45,7 @@ function RowActions({ partner }: { partner: PartnerListItem }) {
         className={`h-7 w-7 p-0 ${partner.isActive ? 'text-muted-foreground hover:text-amber-600' : 'text-muted-foreground hover:text-emerald-600'}`}
         disabled={isPendingToggle}
         title={partner.isActive ? 'Désactiver' : 'Activer'}
+        aria-label={`${partner.isActive ? 'Désactiver' : 'Activer'} le partenaire ${partner.part_name}`}
         onClick={() => startToggle(async () => {
           const r = await togglePartnerAction(partner.id);
           if (!r.success) toast.error(r.error);
@@ -42,22 +54,23 @@ function RowActions({ partner }: { partner: PartnerListItem }) {
       >
         {isPendingToggle ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : partner.isActive ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
       </Button>
-      <Button
-        size="sm" variant="ghost"
-        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-        disabled={isPendingDelete}
-        title="Supprimer"
-        onClick={() => {
-          if (!confirm(`Supprimer "${partner.part_name}" ?`)) return;
-          startDelete(async () => {
-            const r = await deletePartnerAction(partner.id);
-            if (!r.success) toast.error(r.error);
-            else toast.success('Partenaire supprimé');
-          });
-        }}
-      >
-        {isPendingDelete ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-      </Button>
+      <ConfirmDialog
+        trigger={
+          <Button
+            size="sm" variant="ghost"
+            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+            title="Supprimer"
+            aria-label={`Supprimer le partenaire ${partner.part_name}`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        }
+        title="Supprimer ce partenaire ?"
+        description={`« ${partner.part_name} » sera supprimé définitivement. Cette action est irréversible.`}
+        confirmLabel="Supprimer"
+        tone="destructive"
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }
@@ -74,7 +87,7 @@ export function PartnersClient({ data, currentPage }: PartnersClientProps) {
 
   const goToPage = (p: number) => {
     const url = new URL(window.location.href);
-    url.searchParams.set('page', String(p));
+    url.searchParams.set('page', String(Math.max(1, p)));
     router.push(url.pathname + url.search);
   };
 
@@ -119,8 +132,8 @@ export function PartnersClient({ data, currentPage }: PartnersClientProps) {
                       <tr key={p.id} className="hover:bg-muted/20 transition-colors">
                         <td className="px-6 py-3.5">
                           <div className="flex items-center gap-2.5">
-                            {p.part_logoUrl ? (
-                              <img src={p.part_logoUrl} alt={p.part_name} className="h-6 w-6 rounded object-contain bg-muted" />
+                            {safeHttpUrl(p.part_logoUrl) ? (
+                              <img src={safeHttpUrl(p.part_logoUrl)!} alt={p.part_name} className="h-6 w-6 rounded object-contain bg-muted" />
                             ) : (
                               <div className="h-6 w-6 rounded bg-muted flex items-center justify-center">
                                 <Handshake className="h-3 w-3 text-muted-foreground" />
@@ -133,8 +146,8 @@ export function PartnersClient({ data, currentPage }: PartnersClientProps) {
                           <p className="truncate">{p.description ?? '—'}</p>
                         </td>
                         <td className="px-4 py-3.5">
-                          {p.part_websiteUrl ? (
-                            <a href={p.part_websiteUrl} target="_blank" rel="noopener noreferrer"
+                          {safeHttpUrl(p.part_websiteUrl) ? (
+                            <a href={safeHttpUrl(p.part_websiteUrl)!} target="_blank" rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 text-primary hover:underline text-[12px]">
                               <ExternalLink className="h-3 w-3" />
                               Site
@@ -156,8 +169,8 @@ export function PartnersClient({ data, currentPage }: PartnersClientProps) {
                 {filtered.map((p) => (
                   <div key={p.id} className="flex items-center gap-3 px-4 py-3.5">
                     <div className="h-8 w-8 rounded bg-muted flex items-center justify-center shrink-0">
-                      {p.part_logoUrl
-                        ? <img src={p.part_logoUrl} alt={p.part_name} className="h-8 w-8 rounded object-contain" />
+                      {safeHttpUrl(p.part_logoUrl)
+                        ? <img src={safeHttpUrl(p.part_logoUrl)!} alt={p.part_name} className="h-8 w-8 rounded object-contain" />
                         : <Handshake className="h-4 w-4 text-muted-foreground" />}
                     </div>
                     <div className="flex-1 min-w-0">

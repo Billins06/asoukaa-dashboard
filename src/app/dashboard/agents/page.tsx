@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
+import { unstable_rethrow } from 'next/navigation';
 import { Suspense } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { getAgents, getPendingAgents } from '@/lib/agents/api';
-import type { AgentPendingItem } from '@/lib/agents/types';
+import { parsePageParam } from '@/lib/format';
 import { AgentsClient } from './_components/agents-client';
 import { AgentsTableSkeleton } from './_components/agents-skeleton';
 
@@ -15,7 +16,7 @@ interface PageProps {
 export default async function AgentsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const tab = params.tab === 'pending' ? 'pending' : 'all';
-  const page = Math.max(1, Number(params.page) || 1);
+  const page = parsePageParam(params.page);
 
   return (
     <div className="space-y-6">
@@ -41,6 +42,7 @@ async function AgentsDataServer({ tab, page }: { tab: string; page: number }) {
 
   if (allResult.status === 'rejected') {
     const err = allResult.reason;
+    unstable_rethrow(err);
     const msg = err instanceof Error ? err.message : 'Erreur inconnue';
     return (
       <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-[13px] text-destructive">
@@ -50,18 +52,26 @@ async function AgentsDataServer({ tab, page }: { tab: string; page: number }) {
     );
   }
 
-  const pendingData = pendingResult.status === 'fulfilled'
-    ? Array.isArray(pendingResult.value)
-      ? pendingResult.value
-      : ((pendingResult.value as { data?: AgentPendingItem[] })?.data ?? [])
-    : [] as AgentPendingItem[];
+  if (pendingResult.status === 'rejected') unstable_rethrow(pendingResult.reason);
+  const pendingFailed = pendingResult.status === 'rejected';
 
   return (
-    <AgentsClient
-      allData={allResult.value}
-      pendingData={pendingData}
-      activeTab={tab}
-      currentPage={page}
-    />
+    <div className="space-y-4">
+      {pendingFailed && (
+        <div className="flex items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-[13px] text-amber-700 dark:text-amber-500">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>
+            Les candidatures en attente n&apos;ont pas pu être chargées
+            {pendingResult.reason instanceof Error ? ` : ${pendingResult.reason.message}` : ''}.
+          </span>
+        </div>
+      )}
+      <AgentsClient
+        allData={allResult.value}
+        pendingData={pendingResult.status === 'fulfilled' ? pendingResult.value : []}
+        activeTab={tab}
+        currentPage={page}
+      />
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { AlertCircle } from 'lucide-react';
+import { unstable_rethrow } from 'next/navigation';
+import { InlineError, errorMessage } from '@/components/inline-error';
 import { getCoupons } from '@/lib/coupons/api';
 import { CouponsClient } from './_components/coupons-client';
 import { CouponsSkeleton } from './_components/coupons-skeleton';
@@ -14,7 +15,7 @@ interface PageProps {
 async function CouponsContent({ searchParams }: PageProps) {
   const params = await searchParams;
   const filter = params.filter ?? 'all';
-  const page = Math.max(1, Number(params.page ?? '1'));
+  const page = Math.max(1, parseInt(params.page ?? '', 10) || 1);
 
   const isActive =
     filter === 'active' ? true : filter === 'inactive' ? false : undefined;
@@ -23,13 +24,8 @@ async function CouponsContent({ searchParams }: PageProps) {
   try {
     data = await getCoupons({ isActive, page, limit: 20 });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Erreur inconnue';
-    return (
-      <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-[13px] text-destructive">
-        <AlertCircle className="h-4 w-4 shrink-0" />
-        <span>Impossible de charger les coupons : {msg}</span>
-      </div>
-    );
+    unstable_rethrow(error);
+    return <InlineError title="Impossible de charger les coupons." message={errorMessage(error)} />;
   }
 
   return <CouponsClient data={data} currentPage={page} activeFilter={filter} />;

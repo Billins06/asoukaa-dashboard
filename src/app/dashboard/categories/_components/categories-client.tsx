@@ -17,6 +17,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { CategoryFormDialog } from './category-form-dialog';
 import { toggleCategoryAction, deleteCategoryAction } from '@/server/actions/categories-actions';
 import type { CategoryNode, CategoryFlat } from '@/lib/categories/types';
@@ -59,29 +60,34 @@ function ToggleActiveButton({ id, isActive }: { id: string; isActive: boolean })
 }
 
 function DeleteButton({ id, name }: { id: string; name: string }) {
-  const [isPending, startTransition] = useTransition();
+  const handleConfirm = async () => {
+    try {
+      const r = await deleteCategoryAction(id);
+      if (!r.success) toast.error(r.error);
+      else toast.success('Catégorie supprimée');
+    } catch {
+      toast.error('Le serveur ne répond pas. Réessayez dans un instant.');
+    }
+  };
   return (
-    <Button
-      size="sm"
-      variant="ghost"
-      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-      disabled={isPending}
-      title={`Supprimer "${name}"`}
-      onClick={() => {
-        if (!confirm(`Supprimer "${name}" ? Les sous-catégories deviendront orphelines.`)) return;
-        startTransition(async () => {
-          const r = await deleteCategoryAction(id);
-          if (!r.success) toast.error(r.error);
-          else toast.success('Catégorie supprimée');
-        });
-      }}
-    >
-      {isPending ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-      ) : (
-        <Trash2 className="h-3.5 w-3.5" />
-      )}
-    </Button>
+    <ConfirmDialog
+      trigger={
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+          title={`Supprimer "${name}"`}
+          aria-label={`Supprimer la catégorie ${name}`}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      }
+      title="Supprimer cette catégorie ?"
+      description={`« ${name} » sera supprimée définitivement. Une catégorie qui contient encore des sous-catégories ne peut pas être supprimée : supprimez d'abord les sous-catégories.`}
+      confirmLabel="Supprimer"
+      tone="destructive"
+      onConfirm={handleConfirm}
+    />
   );
 }
 
@@ -107,6 +113,8 @@ function CategoryRow({
           className="shrink-0 h-5 w-5 flex items-center justify-center text-muted-foreground"
           onClick={() => setExpanded((p) => !p)}
           disabled={!hasChildren}
+          aria-label={hasChildren ? (expanded ? 'Réduire' : 'Développer') : undefined}
+          aria-expanded={hasChildren ? expanded : undefined}
         >
           {hasChildren ? (
             expanded ? (

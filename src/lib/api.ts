@@ -1,4 +1,5 @@
-import { API_CONFIG } from './constants';
+import { redirect } from 'next/navigation';
+import { API_CONFIG, SESSION_EXPIRED_ROUTE } from './constants';
 import { getAccessToken } from './auth';
 
 /**
@@ -28,11 +29,18 @@ export class ApiError extends Error {
 type FetchOptions = Omit<RequestInit, 'body'> & {
   body?: unknown;          // sera JSON.stringify automatiquement si objet
   auth?: boolean;          // par défaut true. false = endpoint public (login...)
+  /**
+   * Par défaut (true) : une réponse 401 sur un appel authentifié = session morte →
+   * redirection vers la route qui supprime le cookie (évite la boucle
+   * /login <-> /dashboard). Mettre false pour un Route Handler consommé par fetch()
+   * côté navigateur, qui doit recevoir l'erreur 401 telle quelle.
+   */
+  redirectOn401?: boolean;
   timeout?: number;        // override du timeout
 };
 
 async function request<T>(path: string, options: FetchOptions = {}): Promise<T> {
-  const { body, auth = true, timeout = API_CONFIG.timeout, headers, ...rest } = options;
+  const { body, auth = true, redirectOn401 = true, timeout = API_CONFIG.timeout, headers, ...rest } = options;
 
   // 1. Construire l'URL
   const url = path.startsWith('http') ? path : `${API_CONFIG.baseUrl}${path}`;
@@ -90,7 +98,12 @@ async function request<T>(path: string, options: FetchOptions = {}): Promise<T> 
     return data as T;
   } catch (error) {
     clearTimeout(timeoutId);
-    if (error instanceof ApiError) throw error;
+    if (error instanceof ApiError) {
+      // Le redirect() est volontairement lancé ICI, hors du bloc try : dans le try il
+      // aurait été rattrapé par ce même catch et transformé en erreur réseau.
+      if (error.status === 401 && auth && redirectOn401) redirect(SESSION_EXPIRED_ROUTE);
+      throw error;
+    }
     if (error instanceof Error && error.name === 'AbortError') {
       throw new ApiError(408, null, 'Délai dépassé. Le serveur ne répond pas.');
     }

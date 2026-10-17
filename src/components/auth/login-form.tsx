@@ -6,12 +6,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, CheckCircle2, Clock } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { loginAction } from '@/server/actions/auth-actions';
+import { getSafeRedirect } from '@/lib/safe-redirect';
 
 /**
  * Formulaire de login.
@@ -39,7 +40,13 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function LoginForm() {
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirect') || '/dashboard';
+  // Sécurité : `?redirect=` n'est accepté que s'il pointe vers le dashboard
+  // (voir lib/safe-redirect.ts) — sinon lien piégé = redirection vers un site externe.
+  const redirectTo = getSafeRedirect(searchParams.get('redirect'));
+  // ?expired=1 : posé par /api/session/expired (jeton expiré, cookie supprimé)
+  const sessionExpired = searchParams.get('expired') === '1';
+  // ?pwd=ok : posé après la définition du mot de passe (page /set-password)
+  const passwordJustSet = searchParams.get('pwd') === 'ok';
 
   const [showPassword, setShowPassword] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -75,6 +82,25 @@ export function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+      {sessionExpired && (
+        <div
+          role="alert"
+          className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400"
+        >
+          <Clock className="h-4 w-4 shrink-0" />
+          <span>Session expirée, reconnectez-vous</span>
+        </div>
+      )}
+      {passwordJustSet && !sessionExpired && (
+        <div
+          role="status"
+          className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400"
+        >
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span>Mot de passe défini. Vous pouvez maintenant vous connecter.</span>
+        </div>
+      )}
+
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
         <Input

@@ -7,7 +7,7 @@
 /**
  * Design tokens Asoukaa.
  * Tailwind v4 : @theme inline mappe les CSS vars vers les utilitaires.
- * Couleur de marque : orange #FF6B00 = hsl(25 100% 50%)
+ * Couleur de marque : orange #FF6210 = hsl(21 100% 53%)
  */
 
 @theme inline {
@@ -53,7 +53,7 @@
   --popover-foreground: hsl(222 47% 11%);
 
   /* Marque Asoukaa */
-  --primary: hsl(25 100% 50%);
+  --primary: hsl(21 100% 53%);
   --primary-foreground: hsl(0 0% 100%);
 
   --secondary: hsl(210 40% 95%);
@@ -77,7 +77,7 @@
 
   --border: hsl(214 32% 91%);
   --input: hsl(214 32% 91%);
-  --ring: hsl(25 100% 50%);
+  --ring: hsl(21 100% 53%);
 
   --radius: 0.625rem;
 }
@@ -92,7 +92,7 @@
   --popover: hsl(224 50% 7%);
   --popover-foreground: hsl(213 31% 91%);
 
-  --primary: hsl(25 100% 55%);
+  --primary: hsl(21 100% 57%);
   --primary-foreground: hsl(0 0% 100%);
 
   --secondary: hsl(222 25% 12%);
@@ -116,7 +116,7 @@
 
   --border: hsl(224 25% 13%);
   --input: hsl(224 25% 13%);
-  --ring: hsl(25 100% 55%);
+  --ring: hsl(21 100% 57%);
 }
 
 @layer base {

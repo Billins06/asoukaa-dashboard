@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { AlertCircle } from 'lucide-react';
+import { unstable_rethrow } from 'next/navigation';
+import { InlineError, errorMessage } from '@/components/inline-error';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { getFournisseurs } from '@/lib/fournisseurs/api';
@@ -14,20 +15,16 @@ interface PageProps {
 
 async function SuppliersContent({ searchParams }: PageProps) {
   const params = await searchParams;
-  const page = Math.max(1, Number(params.page ?? '1'));
+  const page = Math.max(1, parseInt(params.page ?? '', 10) || 1);
 
+  let data;
   try {
-    const data = await getFournisseurs({ page, limit: 20 });
-    return <SuppliersClient data={data} currentPage={page} />;
+    data = await getFournisseurs({ page, limit: 20 });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Erreur inconnue';
-    return (
-      <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-[13px] text-destructive">
-        <AlertCircle className="h-4 w-4 shrink-0" />
-        <span>Impossible de charger les fournisseurs : {msg}</span>
-      </div>
-    );
+    unstable_rethrow(error);
+    return <InlineError title="Impossible de charger les fournisseurs." message={errorMessage(error)} />;
   }
+  return <SuppliersClient data={data} currentPage={page} />;
 }
 
 function SuppliersSkeleton() {

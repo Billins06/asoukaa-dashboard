@@ -24,7 +24,8 @@ export interface CategoryFlat {
 export interface CreateCategoryPayload {
   name: string;
   parentId?: string | null;
-  imageUrl?: string;
+  /** null = retirer l'image (modification uniquement) */
+  imageUrl?: string | null;
   sortOrder?: number;
   isActive?: boolean;
 }

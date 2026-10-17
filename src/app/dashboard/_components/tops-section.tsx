@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { Trophy, TrendingUp } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,15 +38,13 @@ export async function TopsSection({ period }: { period: DashboardPeriod }) {
           ) : (
             <ul className="space-y-0.5">
               {products.map((product, index) => (
-                <li key={product.productId}>
-                  <Link
-                    href={`/dashboard/products/${product.productId}`}
-                    className="flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-accent/60 transition-colors group"
-                  >
+                <li key={product.productId ?? `produit-${index}`}>
+                  {/* Pas de lien : le site d'administration n'a pas de page détail produit. */}
+                  <div className="flex items-center gap-3 rounded-lg px-2 py-2.5">
                     <RankBadge index={index} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-medium truncate group-hover:text-primary transition-colors">
-                        {product.productName}
+                      <p className="text-[13px] font-medium truncate">
+                        {product.productName ?? 'Produit supprimé'}
                       </p>
                       <p className="text-[11px] text-muted-foreground">
                         {formatNumber(product.totalSold)} vendu{product.totalSold > 1 ? 's' : ''}
@@ -56,7 +53,7 @@ export async function TopsSection({ period }: { period: DashboardPeriod }) {
                     <span className="text-[13px] font-bold text-primary shrink-0">
                       {formatXOFCompact(product.totalRevenue)}
                     </span>
-                  </Link>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -72,7 +69,7 @@ export async function TopsSection({ period }: { period: DashboardPeriod }) {
             Top 5 boutiques
           </CardTitle>
           <CardDescription className="text-xs">
-            Par chiffre d'affaires — {PERIOD_LABELS[period]}
+            Par chiffre d&apos;affaires — {PERIOD_LABELS[period]}
           </CardDescription>
         </CardHeader>
         <CardContent className="px-3">
@@ -81,15 +78,13 @@ export async function TopsSection({ period }: { period: DashboardPeriod }) {
           ) : (
             <ul className="space-y-0.5">
               {vendors.map((vendor, index) => (
-                <li key={vendor.vendorId}>
-                  <Link
-                    href={`/dashboard/vendors/${vendor.vendorId}`}
-                    className="flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-accent/60 transition-colors group"
-                  >
+                <li key={vendor.vendorId ?? `boutique-${index}`}>
+                  {/* Pas de lien : le site d'administration n'a pas de page détail boutique. */}
+                  <div className="flex items-center gap-3 rounded-lg px-2 py-2.5">
                     <RankBadge index={index} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-medium truncate group-hover:text-primary transition-colors">
-                        {vendor.shopName}
+                      <p className="text-[13px] font-medium truncate">
+                        {vendor.shopName ?? 'Boutique inconnue'}
                       </p>
                       <p className="text-[11px] text-muted-foreground">
                         {formatNumber(vendor.totalOrders)} commande{vendor.totalOrders > 1 ? 's' : ''}
@@ -98,7 +93,7 @@ export async function TopsSection({ period }: { period: DashboardPeriod }) {
                     <span className="text-[13px] font-bold text-primary shrink-0">
                       {formatXOFCompact(vendor.totalRevenue)}
                     </span>
-                  </Link>
+                  </div>
                 </li>
               ))}
             </ul>

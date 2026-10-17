@@ -25,4 +25,10 @@ export interface CreatePartnerPayload {
   isActive?: boolean;
 }
 
-export type UpdatePartnerPayload = Partial<CreatePartnerPayload>;
+/**
+ * `part_logoUrl: null` = retirer le logo (le serveur accepte null, pas la chaîne vide).
+ * Omis = logo inchangé.
+ */
+export type UpdatePartnerPayload = Partial<Omit<CreatePartnerPayload, 'part_logoUrl'>> & {
+  part_logoUrl?: string | null;
+};

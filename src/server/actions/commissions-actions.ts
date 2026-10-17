@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { unstable_rethrow } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import type { ActionResult } from '@/types/api';
 
@@ -16,10 +17,11 @@ function extractMsg(error: unknown): string {
 
 export async function markCommissionPaidAction(id: string): Promise<ActionResult> {
   try {
-    await api.post(`/admin/commissions/${id}/mark-paid`);
+    await api.post(`/admin/commissions/${encodeURIComponent(id)}/mark-paid`);
     revalidatePath('/dashboard/commissions');
     return { success: true, data: undefined };
   } catch (error) {
+    unstable_rethrow(error);
     return { success: false, error: extractMsg(error) };
   }
 }

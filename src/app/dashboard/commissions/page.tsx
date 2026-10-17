@@ -1,15 +1,15 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
+import { unstable_rethrow } from 'next/navigation';
 import { AlertCircle, Wallet } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { getCommissions, getCommissionStats } from '@/lib/commissions/api';
+import { parsePageParam } from '@/lib/format';
+import { isCommissionStatus } from '@/lib/status-meta';
 import { CommissionsClient } from './_components/commissions-client';
-import type { CommissionStatus } from '@/lib/commissions/types';
 
 export const metadata: Metadata = { title: 'Commissions' };
-
-const VALID_STATUSES: CommissionStatus[] = ['PENDING', 'PAID'];
 
 interface PageProps {
   searchParams: Promise<{ status?: string; page?: string }>;
@@ -17,20 +17,21 @@ interface PageProps {
 
 async function CommissionsContent({ searchParams }: PageProps) {
   const params = await searchParams;
-  const rawStatus = params.status ?? 'all';
-  const page = Math.max(1, Number(params.page ?? '1'));
-  const status = VALID_STATUSES.includes(rawStatus as CommissionStatus)
-    ? (rawStatus as CommissionStatus)
-    : undefined;
+  const page = parsePageParam(params.page);
+  // Valeur EXACTE du serveur (« en attente », « payé ») ou « all ».
+  const status = isCommissionStatus(params.status) ? params.status : undefined;
 
-  try {
-    const [data, stats] = await Promise.all([
-      getCommissions({ status, page, limit: 20 }),
-      getCommissionStats(),
-    ]);
-    return <CommissionsClient data={data} stats={stats} currentPage={page} activeStatus={rawStatus} />;
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Erreur inconnue';
+  // La liste est l'essentiel de la page ; si seules les statistiques échouent,
+  // on affiche quand même la liste (cartes à « — ») plutôt qu'une page d'erreur.
+  const [listResult, statsResult] = await Promise.allSettled([
+    getCommissions({ status, page, limit: 20 }),
+    getCommissionStats(),
+  ]);
+
+  if (listResult.status === 'rejected') {
+    const err = listResult.reason;
+    unstable_rethrow(err);
+    const msg = err instanceof Error ? err.message : 'Erreur inconnue';
     return (
       <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-[13px] text-destructive">
         <AlertCircle className="h-4 w-4 shrink-0" />
@@ -38,6 +39,15 @@ async function CommissionsContent({ searchParams }: PageProps) {
       </div>
     );
   }
+
+  return (
+    <CommissionsClient
+      data={listResult.value}
+      stats={statsResult.status === 'fulfilled' ? statsResult.value : null}
+      currentPage={page}
+      activeStatus={status ?? 'all'}
+    />
+  );
 }
 
 function CommissionsSkeleton() {

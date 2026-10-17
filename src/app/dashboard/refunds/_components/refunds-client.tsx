@@ -2,17 +2,18 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
 import { Search, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { LocalDate } from '@/components/local-date';
+import { cn } from '@/lib/utils';
+import { formatFCFA } from '@/lib/format';
+import { REFUND_STATUS, REFUND_STATUS_LIST, refundStatusMeta } from '@/lib/status-meta';
 import { RefundActionDialog } from './refund-action-dialog';
-import { formatXOFCompact } from '../../_lib/format';
-import type { RefundListItem, RefundStatus, BackendPaginated } from '@/lib/refunds/types';
+import type { RefundListItem, BackendPaginated } from '@/lib/refunds/types';
 
 interface RefundsClientProps {
   data: BackendPaginated<RefundListItem>;
@@ -22,31 +23,58 @@ interface RefundsClientProps {
 
 const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: 'all', label: 'Tous' },
-  { value: 'PENDING', label: 'En attente' },
-  { value: 'APPROVED', label: 'Approuvés' },
-  { value: 'REJECTED', label: 'Refusés' },
-  { value: 'PROCESSED', label: 'Traités' },
+  ...REFUND_STATUS_LIST.map((value) => ({ value, label: refundStatusMeta(value).filterLabel })),
 ];
 
-const STATUS_STYLES: Record<RefundStatus, string> = {
-  PENDING: 'border-amber-500/40 text-amber-600 bg-amber-500/5',
-  APPROVED: 'border-emerald-500/40 text-emerald-600 bg-emerald-500/5',
-  REJECTED: 'border-destructive/40 text-destructive bg-destructive/5',
-  PROCESSED: 'border-blue-500/40 text-blue-600 bg-blue-500/5',
-};
-
-const STATUS_LABELS: Record<RefundStatus, string> = {
-  PENDING: 'En attente',
-  APPROVED: 'Approuvé',
-  REJECTED: 'Refusé',
-  PROCESSED: 'Traité',
-};
-
-function RefundStatusBadge({ status }: { status: RefundStatus }) {
+function RefundStatusBadge({ status }: { status: string }) {
+  const meta = refundStatusMeta(status);
   return (
-    <Badge variant="outline" className={`text-[11px] ${STATUS_STYLES[status]}`}>
-      {STATUS_LABELS[status]}
+    <Badge variant="outline" className={cn('text-[11px]', meta.badge)}>
+      {meta.label}
     </Badge>
+  );
+}
+
+function customerName(refund: RefundListItem): string | null {
+  const u = refund.order?.user;
+  const name = `${u?.prenom ?? ''} ${u?.name ?? ''}`.trim();
+  return name || null;
+}
+
+/**
+ * « en attente » : Approuver / Refuser. « approuvé » : Marquer comme traité
+ * (argent rendu à la main). Les autres statuts : aucune action (le serveur refuserait).
+ */
+function RefundActions({ refund }: { refund: RefundListItem }) {
+  const orderNumber = refund.order?.orderNumber ?? '—';
+  if (refund.status === REFUND_STATUS.APPROVED) {
+    return (
+      <div className="flex items-center gap-1.5 justify-end">
+        <RefundActionDialog
+          id={refund.id}
+          orderNumber={orderNumber}
+          montantRemb={refund.montantRemb}
+          action="processed"
+        />
+      </div>
+    );
+  }
+  if (refund.status !== REFUND_STATUS.PENDING) return null;
+  return (
+    <div className="flex items-center gap-1.5 justify-end">
+      <RefundActionDialog
+        id={refund.id}
+        orderNumber={orderNumber}
+        montantRemb={refund.montantRemb}
+        action="approve"
+      />
+      <RefundActionDialog
+        id={refund.id}
+        orderNumber={orderNumber}
+        montantRemb={refund.montantRemb}
+        action="reject"
+      />
+    </div>
   );
 }
 
@@ -70,9 +98,11 @@ export function RefundsClient({ data, currentPage, activeStatus }: RefundsClient
   const filtered = useMemo(() => {
     if (!search.trim()) return data.data;
     const q = search.toLowerCase();
-    return data.data.filter((r) =>
-      r.order.orderNumber.toLowerCase().includes(q) ||
-      r.motif.toLowerCase().includes(q),
+    return data.data.filter(
+      (r) =>
+        (r.order?.orderNumber ?? '').toLowerCase().includes(q) ||
+        (r.motif ?? '').toLowerCase().includes(q) ||
+        (customerName(r) ?? '').toLowerCase().includes(q),
     );
   }, [data.data, search]);
 
@@ -85,6 +115,7 @@ export function RefundsClient({ data, currentPage, activeStatus }: RefundsClient
             size="sm"
             variant={activeStatus === f.value ? 'default' : 'outline'}
             className="h-8 text-[12px]"
+            aria-pressed={activeStatus === f.value}
             onClick={() => setStatus(f.value)}
           >
             {f.label}
@@ -97,12 +128,17 @@ export function RefundsClient({ data, currentPage, activeStatus }: RefundsClient
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder="N° commande, motif..."
+              placeholder="N° commande, client, motif..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-8 h-9 text-[13px]"
             />
           </div>
+          {search.trim() && data.pages > 1 && (
+            <p className="text-[11px] text-muted-foreground">
+              La recherche porte uniquement sur les demandes de cette page.
+            </p>
+          )}
         </CardHeader>
 
         <CardContent className="p-0">
@@ -131,38 +167,26 @@ export function RefundsClient({ data, currentPage, activeStatus }: RefundsClient
                       <tr key={refund.id} className="hover:bg-muted/20 transition-colors">
                         <td className="px-6 py-3.5">
                           <span className="font-mono text-[12px] font-medium">
-                            {refund.order.orderNumber}
+                            {refund.order?.orderNumber ?? '—'}
                           </span>
+                          {customerName(refund) && (
+                            <p className="text-[11px] text-muted-foreground">{customerName(refund)}</p>
+                          )}
                         </td>
                         <td className="px-4 py-3.5 text-muted-foreground max-w-[200px]">
-                          <p className="truncate">{refund.motif}</p>
+                          <p className="truncate" title={refund.motif ?? undefined}>{refund.motif || '—'}</p>
                         </td>
-                        <td className="px-4 py-3.5 font-medium">
-                          {formatXOFCompact(refund.montantRemb)}
+                        <td className="px-4 py-3.5 font-medium whitespace-nowrap">
+                          {formatFCFA(refund.montantRemb)}
                         </td>
                         <td className="px-4 py-3.5 text-muted-foreground">
-                          {format(new Date(refund.dateDemande), 'd MMM yyyy', { locale: fr })}
+                          <LocalDate iso={refund.dateDemande} pattern="d MMM yyyy" />
                         </td>
                         <td className="px-4 py-3.5">
                           <RefundStatusBadge status={refund.status} />
                         </td>
                         <td className="px-4 py-3.5">
-                          {refund.status === 'PENDING' && (
-                            <div className="flex items-center gap-1.5 justify-end">
-                              <RefundActionDialog
-                                id={refund.id}
-                                orderNumber={refund.order.orderNumber}
-                                montantRemb={refund.montantRemb}
-                                action="approve"
-                              />
-                              <RefundActionDialog
-                                id={refund.id}
-                                orderNumber={refund.order.orderNumber}
-                                montantRemb={refund.montantRemb}
-                                action="reject"
-                              />
-                            </div>
-                          )}
+                          <RefundActions refund={refund} />
                         </td>
                       </tr>
                     ))}
@@ -176,29 +200,14 @@ export function RefundsClient({ data, currentPage, activeStatus }: RefundsClient
                   <div key={refund.id} className="px-4 py-3.5 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-mono text-[12px] font-medium">
-                        {refund.order.orderNumber}
+                        {refund.order?.orderNumber ?? '—'}
                       </span>
                       <RefundStatusBadge status={refund.status} />
                     </div>
-                    <p className="text-[12px] text-muted-foreground line-clamp-2">{refund.motif}</p>
+                    <p className="text-[12px] text-muted-foreground line-clamp-2">{refund.motif || '—'}</p>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[13px] font-medium">{formatXOFCompact(refund.montantRemb)}</span>
-                      {refund.status === 'PENDING' && (
-                        <div className="flex gap-1.5">
-                          <RefundActionDialog
-                            id={refund.id}
-                            orderNumber={refund.order.orderNumber}
-                            montantRemb={refund.montantRemb}
-                            action="approve"
-                          />
-                          <RefundActionDialog
-                            id={refund.id}
-                            orderNumber={refund.order.orderNumber}
-                            montantRemb={refund.montantRemb}
-                            action="reject"
-                          />
-                        </div>
-                      )}
+                      <span className="text-[13px] font-medium">{formatFCFA(refund.montantRemb)}</span>
+                      <RefundActions refund={refund} />
                     </div>
                   </div>
                 ))}
@@ -206,31 +215,35 @@ export function RefundsClient({ data, currentPage, activeStatus }: RefundsClient
             </>
           )}
 
-          {data.pages > 1 && (
+          {data.total > 0 && (
             <div className="flex items-center justify-between px-6 py-3.5 border-t border-border">
               <p className="text-[12px] text-muted-foreground">
-                {data.total} demande{data.total > 1 ? 's' : ''} · Page {currentPage} sur {data.pages}
+                {data.total} demande{data.total > 1 ? 's' : ''} · Page {currentPage} sur {Math.max(1, data.pages)}
               </p>
-              <div className="flex gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => goToPage(currentPage - 1)}
-                  disabled={currentPage <= 1}
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => goToPage(currentPage + 1)}
-                  disabled={currentPage >= data.pages}
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+              {data.pages > 1 && (
+                <div className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    aria-label="Page précédente"
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage <= 1}
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    aria-label="Page suivante"
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage >= data.pages}
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

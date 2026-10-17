@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { unstable_rethrow } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import type { CreatePartnerPayload, UpdatePartnerPayload } from '@/lib/partners/types';
 import type { ActionResult } from '@/types/api';
@@ -21,6 +22,7 @@ export async function createPartnerAction(payload: CreatePartnerPayload): Promis
     revalidatePath('/dashboard/partners');
     return { success: true, data: undefined };
   } catch (error) {
+    unstable_rethrow(error);
     return { success: false, error: extractMsg(error) };
   }
 }
@@ -31,6 +33,7 @@ export async function updatePartnerAction(id: string, payload: UpdatePartnerPayl
     revalidatePath('/dashboard/partners');
     return { success: true, data: undefined };
   } catch (error) {
+    unstable_rethrow(error);
     return { success: false, error: extractMsg(error) };
   }
 }
@@ -41,6 +44,7 @@ export async function togglePartnerAction(id: string): Promise<ActionResult> {
     revalidatePath('/dashboard/partners');
     return { success: true, data: undefined };
   } catch (error) {
+    unstable_rethrow(error);
     return { success: false, error: extractMsg(error) };
   }
 }
@@ -51,6 +55,7 @@ export async function deletePartnerAction(id: string): Promise<ActionResult> {
     revalidatePath('/dashboard/partners');
     return { success: true, data: undefined };
   } catch (error) {
+    unstable_rethrow(error);
     return { success: false, error: extractMsg(error) };
   }
 }

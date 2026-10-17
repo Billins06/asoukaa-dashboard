@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { unstable_rethrow } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import type { CreateFournisseurPayload, UpdateFournisseurPayload } from '@/lib/fournisseurs/types';
 import type { ActionResult } from '@/types/api';
@@ -21,6 +22,7 @@ export async function createFournisseurAction(payload: CreateFournisseurPayload)
     revalidatePath('/dashboard/suppliers');
     return { success: true, data: undefined };
   } catch (error) {
+    unstable_rethrow(error);
     return { success: false, error: extractMsg(error) };
   }
 }
@@ -31,6 +33,7 @@ export async function updateFournisseurAction(id: string, payload: UpdateFournis
     revalidatePath('/dashboard/suppliers');
     return { success: true, data: undefined };
   } catch (error) {
+    unstable_rethrow(error);
     return { success: false, error: extractMsg(error) };
   }
 }
@@ -41,6 +44,7 @@ export async function toggleFournisseurAction(id: string): Promise<ActionResult>
     revalidatePath('/dashboard/suppliers');
     return { success: true, data: undefined };
   } catch (error) {
+    unstable_rethrow(error);
     return { success: false, error: extractMsg(error) };
   }
 }
@@ -51,6 +55,7 @@ export async function deleteFournisseurAction(id: string): Promise<ActionResult>
     revalidatePath('/dashboard/suppliers');
     return { success: true, data: undefined };
   } catch (error) {
+    unstable_rethrow(error);
     return { success: false, error: extractMsg(error) };
   }
 }

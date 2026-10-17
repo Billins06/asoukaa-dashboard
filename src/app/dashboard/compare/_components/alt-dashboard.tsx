@@ -216,7 +216,7 @@ function HeroKpi({
       >
         {display}
       </p>
-      <p className="text-[11px] text-white/30 mb-5">F CFA cette période</p>
+      <p className="text-[11px] text-white/30 mb-5">FCFA cette période</p>
 
       <Sparkline data={sparkline} color={color} />
 
@@ -452,7 +452,7 @@ export function AltDashboard() {
                   return (
                     <div className="rounded-xl border border-white/10 bg-[#0d1424]/90 backdrop-blur px-3 py-2 text-[12px]">
                       <p className="text-white/40 mb-1">{d.date}</p>
-                      <p className="font-bold text-orange-400">{fmtCompact(d.revenue)} F CFA</p>
+                      <p className="font-bold text-orange-400">{fmtCompact(d.revenue)} FCFA</p>
                       <p className="text-white/40">{d.orders} commandes</p>
                     </div>
                   );

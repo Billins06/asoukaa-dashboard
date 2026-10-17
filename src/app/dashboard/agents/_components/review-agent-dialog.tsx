@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { KycGallery } from '@/components/kyc-gallery';
 import { reviewAgentAction } from '@/server/actions/agents-actions';
 
 interface AgentInfo {
@@ -55,7 +56,7 @@ export function ReviewAgentDialog({ agent, action, children }: ReviewAgentDialog
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {action === 'approve' ? (
@@ -71,6 +72,16 @@ export function ReviewAgentDialog({ agent, action, children }: ReviewAgentDialog
               : `Vous allez refuser la candidature de ${agent.user.prenom} ${agent.user.name}.`}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Pièces du dossier (identité, selfie, photo du véhicule) : contrôlées avant décision. */}
+        {open && (
+          <KycGallery
+            target="agent"
+            id={agent.id}
+            ownerName={`${agent.user.prenom} ${agent.user.name}`.trim() || 'le livreur'}
+            active={open}
+          />
+        )}
 
         {action === 'reject' && (
           <div className="space-y-2">

@@ -16,6 +16,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { getAdminOverview } from '@/lib/dashboard/api';
 import type { DashboardPeriod } from '@/lib/dashboard/types';
+import { ORDER_IN_PROGRESS_STATUSES } from '@/lib/status-meta';
 import { formatNumber, formatXOFCompact } from '../_lib/format';
 
 interface KpiItem {
@@ -33,8 +34,10 @@ export async function KpiCards({ period }: { period: DashboardPeriod }) {
   const overview = await getAdminOverview(period);
   const { counters, period: stats } = overview;
 
-  const inProgressOrders = stats.ordersByStatus
-    .filter((s) => ['pending', 'preparing', 'shipped'].includes(s.status))
+  // « En cours » = passées mais ni livrées ni annulées (statuts français du serveur).
+  const inProgressStatuses: readonly string[] = ORDER_IN_PROGRESS_STATUSES;
+  const inProgressOrders = (stats.ordersByStatus ?? [])
+    .filter((s) => inProgressStatuses.includes(s.status))
     .reduce((sum, s) => sum + Number(s.count), 0);
 
   const kpis: KpiItem[] = [
@@ -67,7 +70,7 @@ export async function KpiCards({ period }: { period: DashboardPeriod }) {
       icon: PackageOpen,
       iconBg: 'bg-warning/10',
       iconColor: 'text-warning',
-      href: '/dashboard/orders?status=in_progress',
+      href: '/dashboard/orders',
     },
     {
       label: 'Vendeurs à valider',
@@ -75,7 +78,7 @@ export async function KpiCards({ period }: { period: DashboardPeriod }) {
       icon: Store,
       iconBg: 'bg-warning/10',
       iconColor: 'text-warning',
-      href: '/dashboard/vendors?status=en_attente',
+      href: '/dashboard/vendors?tab=pending',
       alert: counters.pendingVendors > 0,
     },
     {
@@ -84,7 +87,7 @@ export async function KpiCards({ period }: { period: DashboardPeriod }) {
       icon: Truck,
       iconBg: 'bg-warning/10',
       iconColor: 'text-warning',
-      href: '/dashboard/agents?status=en_attente',
+      href: '/dashboard/agents?tab=pending',
       alert: counters.pendingAgents > 0,
     },
     {
@@ -93,7 +96,7 @@ export async function KpiCards({ period }: { period: DashboardPeriod }) {
       icon: Star,
       iconBg: 'bg-warning/10',
       iconColor: 'text-warning',
-      href: '/dashboard/reviews?status=pending',
+      href: '/dashboard/reviews?status=en%20attente',
       alert: counters.pendingReviews > 0,
     },
     {

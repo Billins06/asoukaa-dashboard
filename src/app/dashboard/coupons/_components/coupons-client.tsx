@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useMemo, useTransition } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
-import { Search, ChevronLeft, ChevronRight, PowerOff, Loader2, Tag } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, PowerOff, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmDialog } from '@/components/confirm-dialog';
+import { LocalDate } from '@/components/local-date';
 import { CreateCouponDialog } from './create-coupon-dialog';
 import { deactivateCouponAction } from '@/server/actions/coupons-actions';
 import type { CouponListItem, BackendPaginated } from '@/lib/coupons/types';
@@ -28,28 +28,42 @@ const FILTERS = [
 ];
 
 function formatValue(coupon: CouponListItem) {
-  if (coupon.type === 'pourcentage') return `${coupon.value} %`;
-  return `${new Intl.NumberFormat('fr-FR').format(coupon.value)} F`;
+  // Le serveur renvoie les montants décimaux sous forme de texte ("20.00") : on convertit.
+  const n = Number(coupon.value);
+  const value = Number.isFinite(n) ? n : 0;
+  if (coupon.type === 'pourcentage') return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(value)} %`;
+  return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(value)} F`;
 }
 
-function DeactivateButton({ id }: { id: string }) {
-  const [isPending, startTransition] = useTransition();
+function DeactivateButton({ id, code }: { id: string; code: string }) {
+  const handleConfirm = async () => {
+    try {
+      const result = await deactivateCouponAction(id);
+      if (result.success) toast.success('Coupon désactivé');
+      else toast.error(result.error);
+    } catch {
+      toast.error('Le serveur ne répond pas. Réessayez dans un instant.');
+    }
+  };
   return (
-    <Button
-      size="sm"
-      variant="ghost"
-      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-      disabled={isPending}
-      onClick={() => {
-        startTransition(async () => {
-          const result = await deactivateCouponAction(id);
-          if (result.success) toast.success('Coupon désactivé');
-          else toast.error(result.error);
-        });
-      }}
-    >
-      {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PowerOff className="h-3.5 w-3.5" />}
-    </Button>
+    <ConfirmDialog
+      trigger={
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+          title="Désactiver"
+          aria-label={`Désactiver le coupon ${code}`}
+        >
+          <PowerOff className="h-3.5 w-3.5" />
+        </Button>
+      }
+      title="Désactiver ce coupon ?"
+      description={`Le code « ${code} » ne pourra plus être utilisé par les clients. Cette action ne peut pas être annulée depuis cette page.`}
+      confirmLabel="Désactiver"
+      tone="destructive"
+      onConfirm={handleConfirm}
+    />
   );
 }
 
@@ -66,7 +80,7 @@ export function CouponsClient({ data, currentPage, activeFilter }: CouponsClient
 
   const goToPage = (p: number) => {
     const url = new URL(window.location.href);
-    url.searchParams.set('page', String(p));
+    url.searchParams.set('page', String(Math.max(1, p)));
     router.push(url.pathname + url.search);
   };
 
@@ -147,9 +161,7 @@ export function CouponsClient({ data, currentPage, activeFilter }: CouponsClient
                           {coupon.maxUses ? ` / ${coupon.maxUses}` : ''}
                         </td>
                         <td className="px-4 py-3.5 text-muted-foreground hidden md:table-cell">
-                          {coupon.expiresAt
-                            ? format(new Date(coupon.expiresAt), 'd MMM yyyy', { locale: fr })
-                            : '—'}
+                          <LocalDate iso={coupon.expiresAt} pattern="d MMM yyyy" />
                         </td>
                         <td className="px-4 py-3.5">
                           {coupon.isActive ? (
@@ -163,7 +175,7 @@ export function CouponsClient({ data, currentPage, activeFilter }: CouponsClient
                           )}
                         </td>
                         <td className="px-4 py-3.5 text-right">
-                          {coupon.isActive && <DeactivateButton id={coupon.id} />}
+                          {coupon.isActive && <DeactivateButton id={coupon.id} code={coupon.code} />}
                         </td>
                       </tr>
                     ))}
@@ -191,7 +203,7 @@ export function CouponsClient({ data, currentPage, activeFilter }: CouponsClient
                         </span>
                       </div>
                     </div>
-                    {coupon.isActive && <DeactivateButton id={coupon.id} />}
+                    {coupon.isActive && <DeactivateButton id={coupon.id} code={coupon.code} />}
                   </div>
                 ))}
               </div>

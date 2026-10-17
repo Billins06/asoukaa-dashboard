@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { SupplierFormDialog } from './supplier-form-dialog';
 import { toggleFournisseurAction, deleteFournisseurAction } from '@/server/actions/fournisseurs-actions';
 import type { FournisseurListItem, BackendPaginated } from '@/lib/fournisseurs/types';
@@ -20,7 +21,16 @@ interface SuppliersClientProps {
 
 function RowActions({ supplier }: { supplier: FournisseurListItem }) {
   const [isPendingToggle, startToggle] = useTransition();
-  const [isPendingDelete, startDelete] = useTransition();
+
+  const handleDelete = async () => {
+    try {
+      const r = await deleteFournisseurAction(supplier.id);
+      if (!r.success) toast.error(r.error);
+      else toast.success('Fournisseur supprimé');
+    } catch {
+      toast.error('Le serveur ne répond pas. Réessayez dans un instant.');
+    }
+  };
 
   return (
     <div className="flex items-center gap-0.5 justify-end">
@@ -34,6 +44,7 @@ function RowActions({ supplier }: { supplier: FournisseurListItem }) {
         className={`h-7 w-7 p-0 ${supplier.isActive ? 'text-muted-foreground hover:text-amber-600' : 'text-muted-foreground hover:text-emerald-600'}`}
         disabled={isPendingToggle}
         title={supplier.isActive ? 'Désactiver' : 'Activer'}
+        aria-label={`${supplier.isActive ? 'Désactiver' : 'Activer'} le fournisseur ${supplier.four_name}`}
         onClick={() => startToggle(async () => {
           const r = await toggleFournisseurAction(supplier.id);
           if (!r.success) toast.error(r.error);
@@ -42,22 +53,23 @@ function RowActions({ supplier }: { supplier: FournisseurListItem }) {
       >
         {isPendingToggle ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : supplier.isActive ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
       </Button>
-      <Button
-        size="sm" variant="ghost"
-        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-        disabled={isPendingDelete}
-        title="Supprimer"
-        onClick={() => {
-          if (!confirm(`Supprimer "${supplier.four_name}" ?`)) return;
-          startDelete(async () => {
-            const r = await deleteFournisseurAction(supplier.id);
-            if (!r.success) toast.error(r.error);
-            else toast.success('Fournisseur supprimé');
-          });
-        }}
-      >
-        {isPendingDelete ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-      </Button>
+      <ConfirmDialog
+        trigger={
+          <Button
+            size="sm" variant="ghost"
+            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+            title="Supprimer"
+            aria-label={`Supprimer le fournisseur ${supplier.four_name}`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        }
+        title="Supprimer ce fournisseur ?"
+        description={`« ${supplier.four_name} » sera supprimé définitivement. Cette action est irréversible.`}
+        confirmLabel="Supprimer"
+        tone="destructive"
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }
@@ -80,7 +92,7 @@ export function SuppliersClient({ data, currentPage }: SuppliersClientProps) {
 
   const goToPage = (p: number) => {
     const url = new URL(window.location.href);
-    url.searchParams.set('page', String(p));
+    url.searchParams.set('page', String(Math.max(1, p)));
     router.push(url.pathname + url.search);
   };
 

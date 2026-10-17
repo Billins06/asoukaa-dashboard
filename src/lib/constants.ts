@@ -20,8 +20,19 @@ export const APP_CONFIG = {
  */
 export const AUTH_COOKIE = {
   name: process.env.ACCESS_TOKEN_COOKIE_NAME || 'asoukaa_access_token',
-  maxAge: parseInt(process.env.ACCESS_TOKEN_COOKIE_MAX_AGE || '604800', 10), // 7j
+  // 1 jour : le JWT admin expire au bout de 1 jour côté serveur (JWT_EXPIRES_IN=1d).
+  // Un cookie plus durable que le jeton laissait l'admin « connecté » avec un jeton
+  // mort (boucle /login <-> /dashboard). À l'ouverture de session on aligne en plus
+  // la durée sur le vrai `exp` du jeton (voir loginAction).
+  maxAge: parseInt(process.env.ACCESS_TOKEN_COOKIE_MAX_AGE || '86400', 10) || 86400,
 } as const;
+
+/**
+ * Route qui supprime le cookie de session puis renvoie vers /login?expired=1.
+ * Un cookie ne peut pas être modifié pendant le rendu d'une page : toute
+ * détection de session morte (layout, réponse 401) redirige donc vers cette route.
+ */
+export const SESSION_EXPIRED_ROUTE = '/api/session/expired';
 
 /**
  * Configuration API backend.

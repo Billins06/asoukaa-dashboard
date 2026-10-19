@@ -23,6 +23,9 @@ export interface VendorListItem {
   status: VendorStatus;
   submittedAt: string | null;
   submissionCount: number;
+  /** Commission propre au vendeur ; null = commission par défaut de la plateforme (10 %). */
+  commissionType?: 'percent' | 'fixed' | null;
+  commissionValue?: number | string | null;
   user: VendorUser;
   // Pièces du dossier (renvoyées par la fiche /vendors/:id ; contrôlées avant affichage)
   idDocumentUrl?: string | null;

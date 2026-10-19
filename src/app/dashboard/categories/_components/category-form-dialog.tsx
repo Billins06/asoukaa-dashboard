@@ -43,6 +43,7 @@ export function CategoryFormDialog({
     parentId: category?.parentId ?? defaultParentId ?? '',
     imageUrl: category?.imageUrl ?? '',
     sortOrder: String(category?.sortOrder ?? '0'),
+    isDigital: category?.isDigital ?? false,
   });
 
   useEffect(() => {
@@ -53,16 +54,20 @@ export function CategoryFormDialog({
         parentId: category?.parentId ?? defaultParentId ?? '',
         imageUrl: category?.imageUrl ?? '',
         sortOrder: String(category?.sortOrder ?? '0'),
+        isDigital: category?.isDigital ?? false,
       });
     }
   }, [open, category, defaultParentId]);
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+  const set = (k: 'name' | 'parentId' | 'imageUrl' | 'sortOrder') => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((p) => ({ ...p, [k]: e.target.value }));
 
   // Catégorie principale = sans parent (le parent ne peut pas être modifié après création).
   const isRoot = mode === 'create' ? !form.parentId : !category?.parentId;
   // Une catégorie principale qui a déjà une image ne peut que la remplacer, pas la retirer.
+  // Une sous-catégorie hérite de la nature (livres numériques ou produits physiques) de sa catégorie principale.
+  const parentCat = flatList.find((c) => c.id === form.parentId);
+  const inheritedDigital = !!parentCat?.isDigital;
   const imageLocked = mode === 'edit' && isRoot && !!category?.imageUrl;
 
   const handleSubmit = () => {
@@ -87,6 +92,8 @@ export function CategoryFormDialog({
         // l'image, sauf pour une catégorie principale (le serveur refuse de la retirer).
         ...(imageUrl ? { imageUrl } : mode === 'edit' && !isRoot ? { imageUrl: null } : {}),
         sortOrder: Number(form.sortOrder) || 0,
+        // Seule une catégorie principale choisit sa nature ; une sous-catégorie l'hérite (le serveur le gère).
+        ...(isRoot ? { isDigital: form.isDigital } : {}),
       };
       const result =
         mode === 'create'
@@ -170,6 +177,32 @@ export function CategoryFormDialog({
               />
             </div>
           </div>
+
+          {isRoot ? (
+            <label className="flex items-start gap-2 rounded-md border border-input p-3 text-[13px]">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4"
+                checked={form.isDigital}
+                disabled={isPending}
+                onChange={(e) => setForm((p) => ({ ...p, isDigital: e.target.checked }))}
+              />
+              <span>
+                <span className="font-medium">Catégorie de livres numériques (PDF)</span>
+                <span className="block text-[11px] text-muted-foreground">
+                  Les livres numériques ne peuvent être publiés que dans ces catégories, et les produits
+                  physiques ne peuvent pas y être publiés. Impossible à modifier si des produits y sont déjà.
+                  Les sous-catégories héritent de ce choix.
+                </span>
+              </span>
+            </label>
+          ) : (
+            <p className="rounded-md border border-dashed p-2 text-[11px] text-muted-foreground">
+              {inheritedDigital || (mode === 'edit' && category?.isDigital)
+                ? 'Cette sous-catégorie fait partie des livres numériques (hérité de la catégorie principale).'
+                : 'Cette sous-catégorie fait partie des produits physiques (hérité de la catégorie principale).'}
+            </p>
+          )}
 
           <div className="space-y-1.5">
             <Label className="text-[13px]">

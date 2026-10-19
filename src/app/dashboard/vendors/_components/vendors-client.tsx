@@ -14,6 +14,7 @@ import {
   XCircle,
   Store,
   Loader2,
+  Percent,
 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -23,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { LocalDate } from '@/components/local-date';
 import { ReviewDialog } from './review-dialog';
+import { CommissionDialog, commissionLabel } from './commission-dialog';
 import { VendorCategories } from './vendor-categories';
 import { blockVendorAction, unblockVendorAction } from '@/server/actions/vendors-actions';
 import type { VendorListItem, VendorPendingItem, BackendPaginated, VendorStatus } from '@/lib/vendors/types';
@@ -106,6 +108,27 @@ function UnblockButton({ vendorId }: { vendorId: string }) {
       {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3 mr-1" />}
       Débloquer
     </Button>
+  );
+}
+
+/** Commission du vendeur + bouton pour la modifier (liste « Tous »). */
+function CommissionCell({ vendor }: { vendor: VendorListItem }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="whitespace-nowrap">{commissionLabel(vendor)}</span>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 w-7 p-0 text-muted-foreground"
+        title="Modifier la commission"
+        aria-label={`Modifier la commission de ${vendor.shopName}`}
+        onClick={() => setOpen(true)}
+      >
+        <Percent className="h-3.5 w-3.5" />
+      </Button>
+      {open && <CommissionDialog vendor={vendor} open={open} onOpenChange={setOpen} />}
+    </div>
   );
 }
 
@@ -207,6 +230,7 @@ export function VendorsClient({ allData, pendingData, activeTab, currentPage }: 
                         <th className="text-left font-medium text-muted-foreground px-6 py-2.5">Boutique</th>
                         <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Propriétaire</th>
                         <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Statut</th>
+                        <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Commission</th>
                         <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Soumis</th>
                         <th className="px-4 py-2.5" />
                       </tr>
@@ -231,6 +255,9 @@ export function VendorsClient({ allData, pendingData, activeTab, currentPage }: 
                           </td>
                           <td className="px-4 py-3.5">
                             <VendorStatusBadge status={vendor.status} />
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <CommissionCell vendor={vendor} />
                           </td>
                           <td className="px-4 py-3.5 text-muted-foreground">
                             <LocalDate iso={vendor.submittedAt} pattern="d MMM yyyy" />
@@ -401,6 +428,10 @@ function VendorMobileCard({ vendor }: { vendor: VendorListItem }) {
       <p className="text-[12px] text-muted-foreground">
         {vendor.user.prenom} {vendor.user.name} — {vendor.user.email}
       </p>
+      <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+        <span>Commission :</span>
+        <CommissionCell vendor={vendor} />
+      </div>
       {vendor.status === 'en attente' && (
         <div className="flex gap-2">
           <ReviewDialog vendor={vendor} action="approve">

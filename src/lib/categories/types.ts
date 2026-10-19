@@ -6,6 +6,8 @@ export interface CategoryNode {
   level: number;
   sortOrder: number;
   isActive: boolean;
+  /** Catégorie réservée aux livres numériques (PDF). */
+  isDigital?: boolean;
   parentId: string | null;
   children: CategoryNode[];
   createdAt: string;
@@ -18,6 +20,7 @@ export interface CategoryFlat {
   slug: string;
   level: number;
   isActive: boolean;
+  isDigital?: boolean;
   parentId: string | null;
 }
 
@@ -28,6 +31,8 @@ export interface CreateCategoryPayload {
   imageUrl?: string | null;
   sortOrder?: number;
   isActive?: boolean;
+  /** Catégorie de livres numériques (catégorie principale uniquement ; les sous-catégories héritent). */
+  isDigital?: boolean;
 }
 
 export type UpdateCategoryPayload = Partial<CreateCategoryPayload>;

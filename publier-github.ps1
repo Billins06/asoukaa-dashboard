@@ -11,6 +11,7 @@
 #  Ton mot de passe / jeton GitHub reste dans Windows : je ne le vois jamais.
 # =====================================================================
 param([string]$message = "Corrections, remboursements, paiements, coupons, import de produits")
+$brancheAttendue = "main"
 $ErrorActionPreference = "Stop"
 
 git rev-parse --is-inside-work-tree 2>$null | Out-Null
@@ -23,6 +24,11 @@ Write-Host "Projet  : $racine"
 Write-Host "Branche : $branche"
 Write-Host "GitHub  : $(git remote get-url origin)"
 Write-Host ""
+if ($branche -ne $brancheAttendue) {
+    Write-Host "ATTENTION : tu es sur la branche '$branche' mais ce projet doit etre envoye sur '$brancheAttendue'." -ForegroundColor Red
+    Write-Host "Change de branche avec :  git switch $brancheAttendue   (puis relance le script)" -ForegroundColor Yellow
+    exit 1
+}
 
 # Un ancien verrou git oublie bloque tout (fichier vide, plus de 10 minutes)
 $verrou = Join-Path $racine ".git\index.lock"

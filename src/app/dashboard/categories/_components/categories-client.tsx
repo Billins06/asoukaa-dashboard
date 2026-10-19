@@ -138,6 +138,15 @@ function CategoryRow({
           )}
         </div>
 
+        {node.isDigital && (
+          <Badge
+            variant="outline"
+            className="text-[10px] hidden sm:inline-flex border-indigo-500/40 text-indigo-600 bg-indigo-500/5"
+          >
+            Livres numériques
+          </Badge>
+        )}
+
         <Badge
           variant="outline"
           className={`text-[10px] hidden sm:inline-flex ${

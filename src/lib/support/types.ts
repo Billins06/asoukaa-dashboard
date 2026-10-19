@@ -97,7 +97,7 @@ export interface TicketDetail {
   subject: string;
   status: TicketStatus;
   orderId: string | null;
-  order: { id: string; orderNumber: string; status: string } | null;
+  order: { id: string; orderNumber: string; status: string; isDigital?: boolean } | null;
   adminHasUnread: boolean;
   userHasUnread: boolean;
   assignedAdmin: { id: string; name: string | null } | null;
@@ -115,4 +115,26 @@ export interface TicketListParams {
   search?: string;
   page?: number;
   limit?: number;
+}
+
+/** Aperçu avant remboursement d'un livre numérique (GET /payments/refunds/digital-preview/:orderId). */
+export interface DigitalRefundPreview {
+  orderId: string;
+  orderNumber: string;
+  paymentStatus: string | null;
+  paidAt: string | null;
+  totalPaye: number;
+  montantRemboursable: number;
+  dejaRembourse: boolean;
+  fenetreOuverte: boolean;
+  fenetreJusquau: string | null;
+  fenetreMotif: string;
+  livres: Array<{
+    productId: string;
+    title: string;
+    downloadCount: number;
+    firstDownloadedAt: string | null;
+    revokedAt: string | null;
+  }>;
+  jamaisTelecharge: boolean;
 }

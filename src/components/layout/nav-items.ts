@@ -18,7 +18,10 @@ import {
   ScrollText,
   ShieldCheck,
   GalleryHorizontalEnd,
+  Images,
   LifeBuoy,
+  Package,
+  Zap,
 } from 'lucide-react';
 import type { SidebarCountKey } from '@/lib/sidebar/types';
 
@@ -80,15 +83,18 @@ export const NAV_SECTIONS: NavSection[] = [
         badgeTone: 'alert',
       },
       { label: 'Livraison', href: '/dashboard/delivery-zones', icon: MapPin },
+      { label: 'Courses express', href: '/dashboard/express-deliveries', icon: Zap },
     ],
   },
   {
     title: 'Catalogue & promo',
     items: [
+      { label: 'Produits', href: '/dashboard/products', icon: Package },
       { label: 'Partenaires', href: '/dashboard/partners', icon: Handshake },
       { label: 'Fournisseurs', href: '/dashboard/suppliers', icon: Building2 },
       { label: 'Coupons', href: '/dashboard/coupons', icon: TicketPercent },
       { label: 'Vitrine', href: '/dashboard/vitrine', icon: GalleryHorizontalEnd },
+      { label: 'Bannières', href: '/dashboard/banners', icon: Images },
     ],
   },
   {

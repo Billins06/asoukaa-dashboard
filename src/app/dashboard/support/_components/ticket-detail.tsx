@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { assignTicketToMeAction, setTicketStatusAction } from '@/server/actions/support-actions';
 import { personName, roleLabel } from '@/lib/support/meta';
 import type { TicketDetail, TicketMessage, TicketStatus } from '@/lib/support/types';
+import { DigitalRefundPanel } from './digital-refund-panel';
 import { TicketComposer } from './ticket-composer';
 import { TicketImage } from './ticket-image';
 import { TicketImageLightbox } from './ticket-image-lightbox';
@@ -261,6 +262,14 @@ export function TicketDetailView({ ticket, currentAdminId, allowedImageHosts }: 
           </div>
         </CardContent>
       </Card>
+
+      {ticket.order?.isDigital && ticket.orderId && (
+        <DigitalRefundPanel
+          ticketId={ticket.id}
+          orderId={ticket.orderId}
+          orderNumber={ticket.order.orderNumber}
+        />
+      )}
 
       {/* Conversation */}
       <Card>

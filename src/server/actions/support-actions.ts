@@ -8,6 +8,7 @@ import {
   TICKET_MAX_ATTACHMENTS,
   TICKET_MAX_MESSAGE,
   TICKET_STATUSES,
+  type DigitalRefundPreview,
   type TicketStatus,
 } from '@/lib/support/types';
 import type { ActionResult } from '@/types/api';
@@ -86,6 +87,48 @@ export async function assignTicketToMeAction(id: string): Promise<ActionResult> 
   try {
     await api.patch(`/admin/support-tickets/${id}/assign`);
     refresh(id);
+    return { success: true, data: undefined };
+  } catch (error) {
+    unstable_rethrow(error);
+    return { success: false, error: extractMsg(error) };
+  }
+}
+
+/** Aperçu avant de rembourser un livre numérique (téléchargé ou non, délai de 24 h respecté ou non). */
+export async function getDigitalRefundPreviewAction(
+  orderId: string,
+  ticketId: string,
+): Promise<ActionResult<DigitalRefundPreview>> {
+  if (!UUID_RE.test(orderId) || !UUID_RE.test(ticketId)) {
+    return { success: false, error: 'Identifiant invalide.' };
+  }
+  try {
+    const data = await api.get<DigitalRefundPreview>(
+      `/payments/refunds/digital-preview/${orderId}?ticketId=${ticketId}`,
+    );
+    return { success: true, data };
+  } catch (error) {
+    unstable_rethrow(error);
+    return { success: false, error: extractMsg(error) };
+  }
+}
+
+/** Rembourse un livre numérique (le client perd l'accès au livre). Réservé aux admins côté serveur. */
+export async function refundDigitalOrderAction(
+  orderId: string,
+  ticketId: string,
+  motif: string,
+): Promise<ActionResult> {
+  if (!UUID_RE.test(orderId) || !UUID_RE.test(ticketId)) {
+    return { success: false, error: 'Identifiant invalide.' };
+  }
+  const clean = typeof motif === 'string' ? motif.trim() : '';
+  if (!clean) return { success: false, error: 'Le motif est obligatoire.' };
+  if (clean.length > 480) return { success: false, error: 'Le motif ne peut pas dépasser 480 caractères.' };
+  try {
+    await api.post('/payments/refunds/digital', { orderId, motif: clean, ticketId });
+    refresh(ticketId);
+    revalidatePath('/dashboard/refunds');
     return { success: true, data: undefined };
   } catch (error) {
     unstable_rethrow(error);
